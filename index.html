@@ -4,11 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="えいたんご">
-<meta name="theme-color" content="#ff8a3d">
-<link rel="manifest" href="/kood-public-dev/manifest.json">
-<link rel="apple-touch-icon" href="/kood-public-dev/icon-180.png">
 <title>えいたんご れんしゅう</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -597,12 +592,12 @@ async function mergeQuestions(incoming){
   const {units:inUnits,photos:inPhotos,deletions}=incoming;
   // 削除指定があれば先に処理
   if(deletions&&deletions.length){
-    deletions.forEach(ck=>{
-      state.units.forEach(u=>{
+    for(const ck of deletions){
+      for(const u of state.units){
         const idx=u.words.findIndex(w=>(w.ck||getCK(u.id,w.e))===ck);
         if(idx>=0){const [rm]=u.words.splice(idx,1);delete state.prog[rm.id];await deletePhotoDB(rm.id);}
-      });
-    });
+      }
+    }
   }
   // 既存の単語をckでインデックス
   const byKey={};
@@ -679,7 +674,7 @@ document.getElementById("importFFile").addEventListener("change",function(){
 /* 単元管理 */
 function renderUnitList(){document.getElementById("unitList").innerHTML=state.units.map(u=>`<div class="urow">${u.id} <span style="color:var(--muted);font-weight:700;font-size:12px">${esc(u.name)}（${u.words.length}語）</span><button class="x" onclick="delUnit('${u.id}')">けす</button></div>`).join("");}
 function addUnit(){const id=document.getElementById("newUnitId").value.trim();const nm=document.getElementById("newUnitName").value.trim()||" ";if(!id){alert("単元の名前（例：No.12）を入れてね");return;}if(state.units.some(u=>u.id===id)){alert("その名前はもうあります");return;}state.units.push({id,name:nm,words:[]});save();document.getElementById("newUnitId").value="";document.getElementById("newUnitName").value="";renderUnitList();renderChips();}
-async function delUnit(id){const u=state.units.find(x=>x.id===id);if(!u)return;if(!confirm("単元「"+id+"」と中の単語ぜんぶをけしますか？"))return;for(const w of u.words){delete state.prog[w.id];await deletePhotoDB(w.id);}state.units=state.units.filter(x=>x.id!==id);if(scope===id)scope="all";save();renderUnitList();renderChips();renderProgress();}
+async function delUnit(id){const u=state.units.find(x=>x.id===id);if(!u)return;if(!confirm("単元「"+id+"」と中の単語ぜんぶをけしますか？"))return;for(const w of u.words){delete state.prog[w.id];await deletePhotoDB(w.id);}state.units=state.units.filter(x=>x.id!==id);if(scope===id)scope="all";save();renderUnitList();renderChips();renderProgress();renderStorageInfo();}
 
 /* ビュー切替・リセット */
 function renderStorageInfo(){
@@ -729,7 +724,7 @@ async function deleteAllData(){
   save();renderAll();
   alert("削除しました。");
 }
-function renderAll(){renderChips();renderProgress();if(view==="quiz"){cur=null;nextCard();}else if(view==="list")renderList();else renderUnitList();}
+function renderAll(){renderChips();renderProgress();if(view==="quiz"){cur=null;nextCard();}else if(view==="list")renderList();else{renderUnitList();renderStorageInfo();}}
 
 /* 自動ついか */
 let autoCropData=null,autoFullData=null,autoUseFullFlag=false;
@@ -1138,14 +1133,6 @@ function playBtDraw(){
 }
 
 function confetti(){const cs=["#ff8a3d","#3bb273","#4aa3df","#ffd23f","#ff6b6b"];for(let i=0;i<16;i++){const c=document.createElement("div");c.className="confetti";c.style.left=Math.random()*100+"vw";c.style.background=cs[i%cs.length];c.style.animation="fall "+(0.9+Math.random()*0.7)+"s ease-in "+Math.random()*0.2+"s forwards";document.body.appendChild(c);setTimeout(()=>c.remove(),2000);}}
-</script>
-<script>
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('/kood-public-dev/sw.js')
-      .catch(()=>{});
-  });
-}
 </script>
 </body>
 </html>
