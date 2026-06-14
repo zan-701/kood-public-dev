@@ -763,7 +763,7 @@ function openBattleSetup(){
          players:[],pstates:{},scores:{},queues:{},turnIdx:0,cur:null,answered:false,timerIv:null,timerLeft:0};
     playerConfig.players.forEach(p=>{const ps=getPS(p.id);bts.pstates[p.id]=ps;bts.selSets[p.id]=ps.units.map(u=>u.id);});
   }else{
-    playerConfig.players.forEach(p=>{if(!bts.pstates[p.id]){const ps=getPS(p.id);bts.pstates[p.id]=ps;bts.selSets[p.id]=ps.units.map(u=>u.id);}});
+    playerConfig.players.forEach(p=>{const ps=getPS(p.id);const isNew=!bts.pstates[p.id];const prevSel=bts.selSets[p.id]||[];bts.pstates[p.id]=ps;if(isNew){bts.selSets[p.id]=ps.units.map(u=>u.id);}else{ps.units.forEach(u=>{if(!prevSel.includes(u.id))prevSel.push(u.id);});bts.selSets[p.id]=prevSel;}});
     bts.selPids=bts.selPids.filter(id=>playerConfig.players.some(p=>p.id===id));
     if(!bts.selPids.length)bts.selPids=playerConfig.players.map(p=>p.id);
   }
