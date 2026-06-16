@@ -173,6 +173,7 @@
   .bt-tmbar{height:100%;background:var(--accent);border-radius:0 4px 4px 0;}
   .bt-tmbar.danger{background:var(--learn);}
   .bt-qhdr{display:flex;align-items:center;justify-content:space-between;padding:8px 14px 4px;font-weight:800;font-size:13px;color:var(--muted);flex-shrink:0;}
+  .bt-quit{background:none;border:1.5px solid var(--muted);border-radius:8px;color:var(--muted);font-family:inherit;font-size:11px;font-weight:800;padding:4px 10px;cursor:pointer;}
   .bt-qbody{flex:1;overflow-y:auto;padding:0 14px calc(20px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch;}
   #btResult{position:fixed;inset:0;background:var(--bg);z-index:201;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;overflow-y:auto;}
   .bt-rtitle{font-size:26px;font-weight:800;margin-bottom:16px;}
@@ -379,11 +380,12 @@
   <button class="bt-tapbtn" onclick="btStartTurn()">👆 タップして スタート</button>
   <div class="bt-pass" id="btCovPass"></div>
   <div id="btCovBgm" style="margin-top:14px"></div>
+  <button class="btn ghost small" style="margin-top:16px;opacity:.7" onclick="btBackToSetup()">← せっていにもどる</button>
 </div>
 <!-- ===== 対戦モード: 問題画面 ===== -->
 <div id="btQuiz" style="display:none">
   <div class="bt-tmwrap"><div class="bt-tmbar" id="btTmBar" style="width:0%"></div></div>
-  <div class="bt-qhdr"><span id="btQLabel"></span><span id="btTmNum"></span></div>
+  <div class="bt-qhdr"><span id="btQLabel"></span><span id="btTmNum"></span><button class="bt-quit" onclick="btQuit()">やめる</button></div>
   <div class="bt-qbody">
     <div class="quiz" id="btCard" style="margin-top:8px">
       <div class="tag" id="btQTag"></div>
@@ -777,6 +779,18 @@ function closeBattle(){
   stopBtTimer();stopBtBgm();
   if(_btPreviewTimer){clearTimeout(_btPreviewTimer);_btPreviewTimer=null;}
   ['battleBg','btCover','btQuiz','btResult'].forEach(id=>document.getElementById(id).style.display='none');
+}
+function btBackToSetup(){
+  if(_btPreviewTimer){clearTimeout(_btPreviewTimer);_btPreviewTimer=null;}
+  stopBtBgm();
+  openBattleSetup();
+}
+function btQuit(){
+  if(!confirm("たいせんを終了しますか？"))return;
+  stopBtTimer();
+  if(_btPreviewTimer){clearTimeout(_btPreviewTimer);_btPreviewTimer=null;}
+  stopBtBgm();
+  openBattleSetup();
 }
 
 function renderBtSetup(){
