@@ -779,6 +779,7 @@ function closeBattle(){
   stopBtTimer();stopBtBgm();
   if(_btPreviewTimer){clearTimeout(_btPreviewTimer);_btPreviewTimer=null;}
   ['battleBg','btCover','btQuiz','btResult'].forEach(id=>document.getElementById(id).style.display='none');
+  bts=null;
 }
 function btBackToSetup(){
   if(_btPreviewTimer){clearTimeout(_btPreviewTimer);_btPreviewTimer=null;}
