@@ -662,22 +662,38 @@ function renderChips(){
     document.getElementById('chips').innerHTML=h;
     return;
   }
-  // Default: hide filter, show all subcats (numbered for elem)
-  document.getElementById('secFilterRow').style.display='none';
+  // Default: for elem show filter; for non-elem (scope='all') hide it
+  const sfr=document.getElementById('secFilterRow');
+  if(isElem){
+    sfr.style.display='flex';
+    sfr.innerHTML=
+      `<label><input type="checkbox" ${secFilter.includes('all')?'checked':''} onchange="tglSecFilter('all')">ぜんぶ</label>`+
+      `<label><input type="checkbox" ${secFilter.includes('new')?'checked':''} onchange="tglSecFilter('new')">みしゅうがく</label>`+
+      `<label><input type="checkbox" ${secFilter.includes('learn')?'checked':''} onchange="tglSecFilter('learn')">おぼえちゅう</label>`+
+      `<label><input type="checkbox" ${secFilter.includes('known')?'checked':''} onchange="tglSecFilter('known')">おぼえた</label>`;
+  }else{sfr.style.display='none';}
   let tot=0,totK=0;
   for(const sec of currentLevelData.sections)for(const w of sec.words){tot++;if(statusOf(w.id)==='known')totK++;}
   let h=`<button class="chip ${scope==='all'?'on':''}" onclick="selectScope('all')">ぜんぶ <small>${totK}/${tot}</small></button>`;
-  const seen=new Set();let subcatIdx=0;
+  const seen=new Set();let subcatIdx=0;let hasAny=false;
   for(const sec of currentLevelData.sections){
     const sub=sec.subcat;
     if(!seen.has(sub)){
       seen.add(sub);subcatIdx++;
+      if(isElem&&!secFilter.includes('all')){
+        const subSec=currentLevelData.sections.find(s=>s.subcat===sub);
+        if(!secFilter.includes(sectionStatus(subSec)))continue;
+      }
+      hasAny=true;
       const dispName=isElem?'No.'+subcatIdx+'_'+sub:sub;
       const ms=currentLevelData.sections.filter(s=>s.subcat===sub);
       let k=0,t=0;ms.forEach(s=>s.words.forEach(w=>{t++;if(statusOf(w.id)==='known')k++;}));
       const sf=sub.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       h+=`<button class="chip ${scope===sub?'on':''}" onclick="selectScope('${sf}')">${esc(dispName)} <small>${k}/${t}</small></button>`;
     }
+  }
+  if(isElem&&!secFilter.includes('all')&&!hasAny){
+    h+=`<span style="color:var(--muted);font-size:12px;padding:0 8px;white-space:nowrap;line-height:1">該当なし</span>`;
   }
   document.getElementById('chips').innerHTML=h;
 }
@@ -694,7 +710,11 @@ function tglSecFilter(val){
   else{secFilter=secFilter.filter(v=>v!=='all');const i=secFilter.indexOf(val);if(i>=0)secFilter.splice(i,1);else secFilter.push(val);if(!secFilter.length)secFilter=['all'];}
   renderChips();
 }
-function selectScope(id){if(id!==scope)secFilter=['all'];scope=id;secScope=null;cur=null;queue=[];renderChips();renderProgress();if(view==='quiz')nextCard();else if(view==='list')renderList();}
+function selectScope(id){
+  const isElem=currentLevelData?.levelId==='elem';
+  if(id!==scope&&!(isElem&&id!=='all'))secFilter=['all'];
+  scope=id;secScope=null;cur=null;queue=[];renderChips();renderProgress();if(view==='quiz')nextCard();else if(view==='list')renderList();
+}
 function selectSection(secId){secScope=secId;cur=null;queue=[];renderChips();renderProgress();if(view==='quiz')nextCard();else if(view==='list')renderList();}
 
 /* ===== クイズ ===== */
