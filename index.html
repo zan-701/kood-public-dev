@@ -382,11 +382,11 @@ function initPlayers(){
 }
 async function switchPlayer(id){
   playerConfig.current=id;savePlayerConfig();
-  scope='all';secScope=null;secFilter=['all'];queue=[];cur=null;answered=false;
   load();
+  secFilter=['all'];queue=[];cur=null;answered=false;
   photoCache=await loadPhotosForPlayer(id);
   await migratePhotosIfNeeded();
-  await setLevel(state.levelId||'elem');
+  await setLevel(state.levelId||'elem',false);
   renderPlayerDisplay();
   closePlayerModal();
   setView('quiz');
@@ -478,16 +478,17 @@ function load(){
     const r=localStorage.getItem(dataKey());
     if(r){
       const parsed=JSON.parse(r);
-      if(parsed.units){state={levelId:'elem',prog:{}};return;}
-      state=parsed;
-      if(!state.prog)state.prog={};
+      if(parsed.units){state={levelId:'elem',prog:{}};scope='all';secScope=null;return;}
+      state={levelId:parsed.levelId||'elem',prog:parsed.prog||{}};
+      scope=parsed.scope||'all';
+      secScope=parsed.secScope||null;
       return;
     }
   }catch(e){}
-  state={levelId:'elem',prog:{}};
+  state={levelId:'elem',prog:{}};scope='all';secScope=null;
 }
 function save(){
-  try{localStorage.setItem(dataKey(),JSON.stringify(state));}
+  try{localStorage.setItem(dataKey(),JSON.stringify({...state,scope,secScope}));}
   catch(e){alert('ほぞんできませんでした。バックアップを取ってください。');}
 }
 initPlayers();load();
@@ -503,13 +504,14 @@ async function loadLevelData(levelId){
     return data;
   }catch(e){console.error('Failed to load level',levelId,e);return null;}
 }
-async function setLevel(levelId){
+async function setLevel(levelId,resetScope=true){
   const data=await loadLevelData(levelId);
   if(!data)return;
   currentLevelData=data;
   state.levelId=levelId;
   save();
-  scope='all';secScope=null;secFilter=['all'];queue=[];cur=null;
+  if(resetScope){scope='all';secScope=null;secFilter=['all'];}
+  queue=[];cur=null;
   renderLevelBtn();
   renderChips();
   renderProgress();
@@ -968,7 +970,7 @@ function addPlayerFromModal(){const name=document.getElementById('newPlayerName'
 (async()=>{
   photoCache=await loadPhotosForPlayer(playerConfig.current);
   await migratePhotosIfNeeded();
-  await setLevel(state.levelId||'elem');
+  await setLevel(state.levelId||'elem',false);
   renderPlayerDisplay();
   nextCard();
 })();
@@ -990,12 +992,20 @@ async function openBattleSetup(){
   for(const p of playerConfig.players){
     const ps=getPS(p.id);
     const levelId=ps.levelId||'elem';
+    const pscope=ps.scope||'all';
+    const psecScope=ps.secScope||null;
     const levelData=await loadLevelData(levelId);
     const isNew=!bts.pstates[p.id];
-    bts.pstates[p.id]={levelId,levelData,prog:ps.prog||{}};
-    if(isNew||!bts.selSets[p.id]){
-      if(p.id===playerConfig.current&&scope!=='all'){bts.selSets[p.id]=[scope];}
-      else{bts.selSets[p.id]=levelData?[...new Set(levelData.sections.map(s=>s.subcat))]:[];}
+    const pscopeChanged=bts.pstates[p.id]?.scope!==pscope;
+    bts.pstates[p.id]={levelId,levelData,prog:ps.prog||{},scope:pscope,secScope:psecScope};
+    if(isNew||!bts.selSets[p.id]||pscopeChanged){
+      if(!levelData){bts.selSets[p.id]=[];continue;}
+      const isElem=levelId==='elem';
+      if(!isElem&&pscope!=='all'){
+        bts.selSets[p.id]=levelData.sections.filter(s=>s.subcat===pscope).map(s=>s.id);
+      }else{
+        bts.selSets[p.id]=[...new Set(levelData.sections.map(s=>s.subcat))];
+      }
     }
   }
   bts.selPids=bts.selPids.filter(id=>playerConfig.players.some(p=>p.id===id));
@@ -1032,28 +1042,66 @@ function renderBtSetup(){
     if(!levelData||!levelData.sections.length){
       h+=`<div class="bt-set-box"><div class="bt-set-hdr"><span>${esc(p.name)} (${levelLabel})</span><span style="font-size:11px;color:var(--muted)">データなし</span></div></div>`;return;
     }
-    const subcats=[...new Set(levelData.sections.map(s=>s.subcat))];
+    const pscope=ps?.scope||'all';
+    const isElem=ps?.levelId==='elem';
     const pFilter=(bts.btFilters&&bts.btFilters[pid])||['all'];
     const fAll=pFilter.includes('all');
-    const filtSubcats=fAll?subcats:subcats.filter(sub=>pFilter.includes(btSubcatStatus(pid,sub,levelData)));
-    const allOn=filtSubcats.length>0&&filtSubcats.every(sub=>(bts.selSets[pid]||[]).includes(sub));
+    // Build item list: keys + labels + word counts
+    const keys=[],labels={},wcs={};
+    if(!isElem&&pscope!=='all'){
+      // non-elem: show sections of selected subcat
+      const secs=levelData.sections.filter(s=>s.subcat===pscope);
+      secs.forEach((sec,i)=>{
+        const st=btSectionStatus(pid,sec);
+        if(fAll||pFilter.includes(st)){keys.push(sec.id);labels[sec.id]='セクション'+(i+1);wcs[sec.id]=sec.words.length;}
+      });
+    }else if(isElem){
+      // elem: show numbered subcats
+      const seen=new Set();let idx=0;
+      for(const sec of levelData.sections){
+        const sub=sec.subcat;
+        if(!seen.has(sub)){
+          seen.add(sub);idx++;
+          const st=btSubcatStatus(pid,sub,levelData);
+          if(fAll||pFilter.includes(st)){
+            keys.push(sub);
+            labels[sub]='No.'+idx+'_'+sub;
+            wcs[sub]=levelData.sections.filter(s=>s.subcat===sub).reduce((n,s)=>n+s.words.length,0);
+          }
+        }
+      }
+    }else{
+      // non-elem scope='all': show subcats
+      const seen=new Set();
+      for(const sec of levelData.sections){
+        const sub=sec.subcat;
+        if(!seen.has(sub)){
+          seen.add(sub);
+          const st=btSubcatStatus(pid,sub,levelData);
+          if(fAll||pFilter.includes(st)){
+            keys.push(sub);labels[sub]=sub;
+            wcs[sub]=levelData.sections.filter(s=>s.subcat===sub).reduce((n,s)=>n+s.words.length,0);
+          }
+        }
+      }
+    }
+    const allOn=keys.length>0&&keys.every(k=>(bts.selSets[pid]||[]).includes(k));
+    const scopeLabel=!isElem&&pscope!=='all'?` / ${pscope}`:'';
     h+=`<div class="bt-set-box">`;
-    h+=`<div class="bt-set-hdr"><span>▼ ${esc(p.name)} <span style="font-size:11px;color:var(--muted)">${levelLabel}</span></span><button class="bt-allbtn" onclick="btSelAll('${pid}',${allOn?'false':'true'})">${allOn?'全解除':'全選択'}</button></div>`;
+    h+=`<div class="bt-set-hdr"><span>▼ ${esc(p.name)} <span style="font-size:11px;color:var(--muted)">${levelLabel}${scopeLabel}</span></span><button class="bt-allbtn" onclick="btSelAll('${pid}',${allOn?'false':'true'})">${allOn?'全解除':'全選択'}</button></div>`;
     h+=`<div class="bt-filter-row">`;
     h+=`<label><input type="checkbox" ${fAll?'checked':''} onchange="btTglFilter('${pid}','all')">ぜんぶ</label>`;
     h+=`<label><input type="checkbox" ${pFilter.includes('new')?'checked':''} onchange="btTglFilter('${pid}','new')">みしゅうがく</label>`;
     h+=`<label><input type="checkbox" ${pFilter.includes('learn')?'checked':''} onchange="btTglFilter('${pid}','learn')">おぼえちゅう</label>`;
     h+=`<label><input type="checkbox" ${pFilter.includes('known')?'checked':''} onchange="btTglFilter('${pid}','known')">おぼえた</label>`;
-    h+=`</div>`;
-    h+=`<div class="bt-set-rows">`;
-    if(filtSubcats.length===0){
+    h+=`</div><div class="bt-set-rows">`;
+    if(keys.length===0){
       h+=`<div style="padding:10px 14px;color:var(--muted);font-size:12px;font-weight:700">該当なし</div>`;
     }else{
-      filtSubcats.forEach(sub=>{
-        const chk=(bts.selSets[pid]||[]).includes(sub);
-        const wc=levelData.sections.filter(s=>s.subcat===sub).reduce((n,s)=>n+s.words.length,0);
-        const sf=sub.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-        h+=`<label class="bt-chk"><input type="checkbox" ${chk?'checked':''} onchange="btTglSet('${pid}','${sf}',this.checked)"><span>${esc(sub)}</span><span style="margin-left:auto;color:var(--muted);font-size:11px">${wc}語</span></label>`;
+      keys.forEach(k=>{
+        const chk=(bts.selSets[pid]||[]).includes(k);
+        const sf=k.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        h+=`<label class="bt-chk"><input type="checkbox" ${chk?'checked':''} onchange="btTglSet('${pid}','${sf}',this.checked)"><span>${esc(labels[k])}</span><span style="margin-left:auto;color:var(--muted);font-size:11px">${wcs[k]}語</span></label>`;
       });
     }
     h+=`</div></div>`;
@@ -1086,9 +1134,13 @@ function btSubcatStatus(pid,subcat,ld){
   const words=ld.sections.filter(s=>s.subcat===subcat).flatMap(s=>s.words);
   let allKnown=true,anyAnswered=false;
   for(const w of words){const s=prog[w.id]||'new';if(s!=='known')allKnown=false;if(s!=='new')anyAnswered=true;}
-  if(allKnown&&words.length>0)return'known';
-  if(anyAnswered)return'learn';
-  return'new';
+  if(allKnown&&words.length>0)return'known';if(anyAnswered)return'learn';return'new';
+}
+function btSectionStatus(pid,sec){
+  const prog=bts.pstates[pid]?.prog||{};
+  let allKnown=true,anyAnswered=false;
+  for(const w of sec.words){const s=prog[w.id]||'new';if(s!=='known')allKnown=false;if(s!=='new')anyAnswered=true;}
+  if(allKnown&&sec.words.length>0)return'known';if(anyAnswered)return'learn';return'new';
 }
 function btTglFilter(pid,val){
   if(!bts.btFilters)bts.btFilters={};
@@ -1100,9 +1152,28 @@ function btTglFilter(pid,val){
 function btSelAll(pid,on){
   const ld=bts.pstates[pid]?.levelData;
   if(!on||!ld){bts.selSets[pid]=[];renderBtSetup();return;}
-  const allSubcats=[...new Set(ld.sections.map(s=>s.subcat))];
+  const ps=bts.pstates[pid];
+  const isElem=ps.levelId==='elem';
+  const pscope=ps.scope||'all';
   const pFilter=(bts.btFilters&&bts.btFilters[pid])||['all'];
-  const toAdd=pFilter.includes('all')?allSubcats:allSubcats.filter(sub=>pFilter.includes(btSubcatStatus(pid,sub,ld)));
+  const fAll=pFilter.includes('all');
+  let toAdd=[];
+  if(!isElem&&pscope!=='all'){
+    const secs=ld.sections.filter(s=>s.subcat===pscope);
+    toAdd=(fAll?secs:secs.filter(sec=>pFilter.includes(btSectionStatus(pid,sec)))).map(s=>s.id);
+  }else if(isElem){
+    const seen=new Set();
+    for(const sec of ld.sections){
+      const sub=sec.subcat;
+      if(!seen.has(sub)){seen.add(sub);if(fAll||pFilter.includes(btSubcatStatus(pid,sub,ld)))toAdd.push(sub);}
+    }
+  }else{
+    const seen=new Set();
+    for(const sec of ld.sections){
+      const sub=sec.subcat;
+      if(!seen.has(sub)){seen.add(sub);if(fAll||pFilter.includes(btSubcatStatus(pid,sub,ld)))toAdd.push(sub);}
+    }
+  }
   bts.selSets[pid]=[...new Set([...(bts.selSets[pid]||[]),...toAdd])];
   renderBtSetup();
 }
@@ -1130,8 +1201,9 @@ async function btGo(){
     bts.scores[p.id]=0;
     const {levelData}=bts.pstates[p.id];
     let words=[];
+    const sel=bts.selSets[p.id]||[];
     for(const sec of levelData.sections){
-      if((bts.selSets[p.id]||[]).includes(sec.subcat)){
+      if(sel.includes(sec.id)||sel.includes(sec.subcat)){
         for(const w of sec.words)words.push({sec,w});
       }
     }
