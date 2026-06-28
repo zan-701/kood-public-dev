@@ -756,9 +756,9 @@ function tglSecFilter(val){
 function selectScope(id){
   const isElem=currentLevelData?.levelId==='elem';
   if(id!==scope&&!(isElem&&id!=='all'))secFilter=['all'];
-  scope=id;secScope=null;cur=null;queue=[];renderChips();renderProgress();if(view==='quiz')nextCard();else if(view==='list')renderList();
+  scope=id;secScope=null;cur=null;queue=[];save();renderChips();renderProgress();if(view==='quiz')nextCard();else if(view==='list')renderList();
 }
-function selectSection(secId){secScope=secId;cur=null;queue=[];renderChips();renderProgress();if(view==='quiz')nextCard();else if(view==='list')renderList();}
+function selectSection(secId){secScope=secId;cur=null;queue=[];save();renderChips();renderProgress();if(view==='quiz')nextCard();else if(view==='list')renderList();}
 
 /* ===== クイズ ===== */
 function buildQueue(){
@@ -781,6 +781,10 @@ function renderEmptyQuiz(){
   document.getElementById('qPic').innerHTML='<div class="ph">レベルを選んで<br>セクションをえらんでね</div>';
   document.getElementById('ansInput').style.display='none';
   document.getElementById('answerBtns').style.display='none';
+  document.getElementById('qPartialHint').classList.add('hidden');
+  const isElem=currentLevelData?.levelId==='elem';
+  document.getElementById('qHint').classList.toggle('hidden',isElem);
+  document.getElementById('hintBtn').textContent=isElem?'💬 ヒント（にほんご）':'💬 ヒント（部分表示）';
 }
 const SL={new:['みがくしゅう','var(--new)','#fff'],learn:['まだ','var(--learn)','#fff'],known:['おぼえた','var(--known)','#fff']};
 
