@@ -817,7 +817,7 @@ function reveal(){
   document.getElementById('answerBtns').style.display='none';
   document.getElementById('nextBtns').style.display='flex';
   document.getElementById('readBtn').style.display='';
-  speakAfterDelay(cur.w.e);
+  playWrong();speakAfterDelay(cur.w.e);
 }
 function markAndNext(s){cancelSpeakTimer();if(cur)setStatus(cur.w.id,s);renderProgress();renderChips();nextCard();}
 document.getElementById('ansInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(!answered)check();}});
