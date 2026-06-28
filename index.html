@@ -375,7 +375,7 @@ function initPlayers(){
 }
 async function switchPlayer(id){
   playerConfig.current=id;savePlayerConfig();
-  scope='all';queue=[];cur=null;answered=false;
+  scope='all';secScope=null;queue=[];cur=null;answered=false;
   load();
   photoCache=await loadPhotosForPlayer(id);
   await migratePhotosIfNeeded();
@@ -502,7 +502,7 @@ async function setLevel(levelId){
   currentLevelData=data;
   state.levelId=levelId;
   save();
-  scope='all';queue=[];cur=null;
+  scope='all';secScope=null;queue=[];cur=null;
   renderLevelBtn();
   renderChips();
   renderProgress();
@@ -572,7 +572,7 @@ function lvBack(){_lvStep='level';renderLevelModal();}
 function closeLevelModal(){document.getElementById('levelModalBg').style.display='none';}
 
 /* ===== スコープ・単語 ===== */
-let view='quiz',scope='all',queue=[],cur=null,answered=false;
+let view='quiz',scope='all',secScope=null,queue=[],cur=null,answered=false;
 function norm(s){return(s||'').toLowerCase().trim().replace(/\s+/g,' ').replace(/[.。]/g,'');}
 function statusOf(id){return state.prog[id]||'new';}
 function setStatus(id,s){state.prog[id]=s;save();}
@@ -589,7 +589,9 @@ function scopeWords(){
   if(!currentLevelData)return[];
   const words=[];
   for(const sec of currentLevelData.sections){
-    if(scope==='all'||scope===sec.subcat){
+    if(secScope){
+      if(sec.id===secScope)for(const w of sec.words)words.push({sec,w});
+    }else if(scope==='all'||scope===sec.subcat){
       for(const w of sec.words)words.push({sec,w});
     }
   }
@@ -613,13 +615,35 @@ function renderProgress(){
   document.getElementById('cNew').textContent=n;
   document.getElementById('cLearn').textContent=le;
   document.getElementById('cKnown').textContent=k;
-  const secName=scope==='all'?'ぜんぶ':displaySubcatName(scope);
+  let secName;
+  if(secScope){
+    const sec=currentLevelData?.sections.find(s=>s.id===secScope);
+    if(sec){const subsecs=currentLevelData.sections.filter(s=>s.subcat===sec.subcat);const idx=subsecs.findIndex(s=>s.id===secScope)+1;secName=sec.subcat+' セクション'+idx;}
+    else secName=secScope;
+  }else{secName=scope==='all'?'ぜんぶ':displaySubcatName(scope);}
   document.getElementById('scopeName').textContent=secName+' の すすみぐあい';
 }
 
 function renderChips(){
   if(!currentLevelData){document.getElementById('chips').innerHTML='';return;}
   const isElem=currentLevelData.levelId==='elem';
+  // Non-elem with a specific subcat selected: show sections within that subcat
+  if(!isElem&&scope!=='all'){
+    const sections=currentLevelData.sections.filter(s=>s.subcat===scope);
+    let totW=0,totK=0;
+    sections.forEach(s=>s.words.forEach(w=>{totW++;if(statusOf(w.id)==='known')totK++;}));
+    const sf=scope.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    let h=`<button class="chip ${!secScope?'on':''}" onclick="selectScope('${sf}')">全部 <small>${totK}/${totW}</small></button>`;
+    if(sections.length>1){
+      sections.forEach((sec,i)=>{
+        let k=0;sec.words.forEach(w=>{if(statusOf(w.id)==='known')k++;});
+        h+=`<button class="chip ${secScope===sec.id?'on':''}" onclick="selectSection('${sec.id}')">セクション${i+1} <small>${k}/${sec.words.length}語</small></button>`;
+      });
+    }
+    document.getElementById('chips').innerHTML=h;
+    return;
+  }
+  // Default: show all subcats (numbered for elem)
   let tot=0,totK=0;
   for(const sec of currentLevelData.sections)for(const w of sec.words){tot++;if(statusOf(w.id)==='known')totK++;}
   let h=`<button class="chip ${scope==='all'?'on':''}" onclick="selectScope('all')">ぜんぶ <small>${totK}/${tot}</small></button>`;
@@ -638,7 +662,8 @@ function renderChips(){
   document.getElementById('chips').innerHTML=h;
 }
 
-function selectScope(id){scope=id;cur=null;queue=[];renderChips();renderProgress();if(view==='quiz')nextCard();else if(view==='list')renderList();}
+function selectScope(id){scope=id;secScope=null;cur=null;queue=[];renderChips();renderProgress();if(view==='quiz')nextCard();else if(view==='list')renderList();}
+function selectSection(secId){secScope=secId;cur=null;queue=[];renderChips();renderProgress();if(view==='quiz')nextCard();else if(view==='list')renderList();}
 
 /* ===== クイズ ===== */
 function buildQueue(){
@@ -729,9 +754,12 @@ document.getElementById('qAddPhoto').addEventListener('click',()=>{if(cur)openSh
 function renderList(){
   const body=document.getElementById('listBody');
   if(!currentLevelData){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:20px">レベルをえらんでください</p>';return;}
-  const secs=scope==='all'?currentLevelData.sections:currentLevelData.sections.filter(s=>s.subcat===scope);
+  let secs;
+  if(secScope){secs=currentLevelData.sections.filter(s=>s.id===secScope);}
+  else if(scope==='all'){secs=currentLevelData.sections;}
+  else{secs=currentLevelData.sections.filter(s=>s.subcat===scope);}
   let h='';
-  if(scope==='all'){
+  if(scope==='all'&&!secScope){
     const ls=[];
     for(const sec of currentLevelData.sections){
       for(const w of sec.words){if(statusOf(w.id)==='learn')ls.push(w);}
@@ -821,7 +849,12 @@ function setView(v){
   else renderStorageInfo();
 }
 function resetScope(){
-  const label=scope==='all'?'ぜんぶ':displaySubcatName(scope);
+  let label;
+  if(secScope){
+    const sec=currentLevelData?.sections.find(s=>s.id===secScope);
+    if(sec){const subsecs=currentLevelData.sections.filter(s=>s.subcat===sec.subcat);const idx=subsecs.findIndex(s=>s.id===secScope)+1;label=sec.subcat+' セクション'+idx;}
+    else label=secScope;
+  }else label=scope==='all'?'ぜんぶ':displaySubcatName(scope);
   if(!confirm(label+' の学習記録を0%にもどします。よろしいですか？'))return;
   scopeWords().forEach(({w})=>{delete state.prog[w.id];});
   save();cur=null;queue=[];renderProgress();renderChips();if(view==='quiz')nextCard();
@@ -906,7 +939,8 @@ async function openBattleSetup(){
     const isNew=!bts.pstates[p.id];
     bts.pstates[p.id]={levelId,levelData,prog:ps.prog||{}};
     if(isNew||!bts.selSets[p.id]){
-      bts.selSets[p.id]=levelData?[...new Set(levelData.sections.map(s=>s.subcat))]:[];
+      if(p.id===playerConfig.current&&scope!=='all'){bts.selSets[p.id]=[scope];}
+      else{bts.selSets[p.id]=levelData?[...new Set(levelData.sections.map(s=>s.subcat))]:[];}
     }
   }
   bts.selPids=bts.selPids.filter(id=>playerConfig.players.some(p=>p.id===id));
