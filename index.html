@@ -552,8 +552,15 @@ function renderLevelModal(){
 async function lvPickLevel(levelId){
   const data=await loadLevelData(levelId);
   if(!data)return;
-  _lvLevelId=levelId;_lvStep='sub';
-  renderLevelModal();
+  if(levelId==='elem'){
+    closeLevelModal();
+    await setLevel('elem');
+    answered=false;
+    if(view==='quiz')nextCard();else if(view==='list')renderList();
+  }else{
+    _lvLevelId=levelId;_lvStep='sub';
+    renderLevelModal();
+  }
 }
 async function lvSelectSubcat(subcat){
   closeLevelModal();
@@ -569,6 +576,15 @@ let view='quiz',scope='all',queue=[],cur=null,answered=false;
 function norm(s){return(s||'').toLowerCase().trim().replace(/\s+/g,' ').replace(/[.。]/g,'');}
 function statusOf(id){return state.prog[id]||'new';}
 function setStatus(id,s){state.prog[id]=s;save();}
+function displaySubcatName(sub){
+  if(!currentLevelData||currentLevelData.levelId!=='elem')return sub;
+  let idx=0;const seen=new Set();
+  for(const sec of currentLevelData.sections){
+    if(!seen.has(sec.subcat)){seen.add(sec.subcat);idx++;}
+    if(sec.subcat===sub)return'No.'+idx+'_'+sub;
+  }
+  return sub;
+}
 function scopeWords(){
   if(!currentLevelData)return[];
   const words=[];
@@ -597,24 +613,26 @@ function renderProgress(){
   document.getElementById('cNew').textContent=n;
   document.getElementById('cLearn').textContent=le;
   document.getElementById('cKnown').textContent=k;
-  const secName=scope==='all'?'ぜんぶ':scope;
+  const secName=scope==='all'?'ぜんぶ':displaySubcatName(scope);
   document.getElementById('scopeName').textContent=secName+' の すすみぐあい';
 }
 
 function renderChips(){
   if(!currentLevelData){document.getElementById('chips').innerHTML='';return;}
+  const isElem=currentLevelData.levelId==='elem';
   let tot=0,totK=0;
   for(const sec of currentLevelData.sections)for(const w of sec.words){tot++;if(statusOf(w.id)==='known')totK++;}
   let h=`<button class="chip ${scope==='all'?'on':''}" onclick="selectScope('all')">ぜんぶ <small>${totK}/${tot}</small></button>`;
-  const seen=new Set();
+  const seen=new Set();let subcatIdx=0;
   for(const sec of currentLevelData.sections){
     const sub=sec.subcat;
     if(!seen.has(sub)){
-      seen.add(sub);
+      seen.add(sub);subcatIdx++;
+      const dispName=isElem?'No.'+subcatIdx+'_'+sub:sub;
       const ms=currentLevelData.sections.filter(s=>s.subcat===sub);
       let k=0,t=0;ms.forEach(s=>s.words.forEach(w=>{t++;if(statusOf(w.id)==='known')k++;}));
       const sf=sub.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      h+=`<button class="chip ${scope===sub?'on':''}" onclick="selectScope('${sf}')">${esc(sub)} <small>${k}/${t}</small></button>`;
+      h+=`<button class="chip ${scope===sub?'on':''}" onclick="selectScope('${sf}')">${esc(dispName)} <small>${k}/${t}</small></button>`;
     }
   }
   document.getElementById('chips').innerHTML=h;
@@ -658,7 +676,7 @@ function renderQuiz(){
   answered=false;
   const c=document.getElementById('quizCard');
   c.classList.remove('pop');void c.offsetWidth;c.classList.add('pop');
-  document.getElementById('qTag').textContent=cur.sec.name;
+  document.getElementById('qTag').textContent=currentLevelData?.levelId==='elem'?displaySubcatName(cur.sec.subcat):cur.sec.name;
   const s=SL[statusOf(cur.w.id)];
   const st=document.getElementById('qStat');
   st.textContent=s[0];st.style.background=s[1];st.style.color=s[2];
@@ -722,7 +740,8 @@ function renderList(){
   }
   for(const sec of secs){
     let k=0;sec.words.forEach(w=>{if(statusOf(w.id)==='known')k++;});
-    h+=`<div class="secttitle"><span>${esc(sec.name)}</span><span>${k}/${sec.words.length}</span></div><div class="grid">`+sec.words.map(w=>cellHtml(w)).join('')+'</div>';
+    const secTitle=currentLevelData.levelId==='elem'?displaySubcatName(sec.subcat):sec.name;
+    h+=`<div class="secttitle"><span>${esc(secTitle)}</span><span>${k}/${sec.words.length}</span></div><div class="grid">`+sec.words.map(w=>cellHtml(w)).join('')+'</div>';
   }
   body.innerHTML=h;
 }
@@ -802,7 +821,7 @@ function setView(v){
   else renderStorageInfo();
 }
 function resetScope(){
-  const label=scope==='all'?'ぜんぶ':scope;
+  const label=scope==='all'?'ぜんぶ':displaySubcatName(scope);
   if(!confirm(label+' の学習記録を0%にもどします。よろしいですか？'))return;
   scopeWords().forEach(({w})=>{delete state.prog[w.id];});
   save();cur=null;queue=[];renderProgress();renderChips();if(view==='quiz')nextCard();
