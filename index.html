@@ -773,7 +773,19 @@ function renderQuiz(){
   document.getElementById('readBtn').style.display='none';
 }
 function toggleHint(){document.getElementById('qHint').classList.toggle('hidden');}
-function speak(text){const u=new SpeechSynthesisUtterance(text.split('/')[0].trim());u.lang='en-US';u.rate=0.9;speechSynthesis.cancel();speechSynthesis.speak(u);}
+let _enVoice=null;
+function _getEnVoice(){
+  if(_enVoice)return _enVoice;
+  const vs=speechSynthesis.getVoices();
+  _enVoice=vs.find(v=>v.lang==='en-US'&&v.localService)
+          ||vs.find(v=>v.lang.startsWith('en')&&v.localService)
+          ||vs.find(v=>v.lang==='en-US')
+          ||vs.find(v=>v.lang.startsWith('en'))
+          ||null;
+  return _enVoice;
+}
+speechSynthesis.addEventListener('voiceschanged',()=>{_enVoice=null;});
+function speak(text){const u=new SpeechSynthesisUtterance(text.split('/')[0].trim());u.lang='en-US';u.rate=0.9;const v=_getEnVoice();if(v)u.voice=v;speechSynthesis.cancel();speechSynthesis.speak(u);}
 function speakCurrent(){if(cur)speak(cur.w.e);}
 function playSound(notes){try{const ctx=_getSfxCtx();const t=ctx.currentTime;notes.forEach(([f,s,d])=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0.28,t+s);g.gain.exponentialRampToValueAtTime(0.001,t+s+d);o.start(t+s);o.stop(t+s+d);});}catch(e){}}
 function playCorrect(){try{const ctx=_getSfxCtx();const t=ctx.currentTime;[[392,0,0.09,'sine'],[523,0.08,0.09,'sine'],[659,0.16,0.09,'sine'],[523,0.27,0.75,'triangle'],[659,0.27,0.75,'triangle'],[784,0.27,0.75,'triangle'],[1047,0.27,0.55,'sine']].forEach(([f,s,d,tp])=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type=tp;o.frequency.value=f;g.gain.setValueAtTime(0.22,t+s);g.gain.exponentialRampToValueAtTime(0.001,t+s+d);o.start(t+s);o.stop(t+s+d);});}catch(e){}}
