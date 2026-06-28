@@ -832,13 +832,16 @@ function _getEnVoice(){
   return _enVoice;
 }
 speechSynthesis.addEventListener('voiceschanged',()=>{_enVoice=null;});
+function _enOnly(s){return s.replace(/[^a-zA-Z0-9\s\-\'\.]/g,' ').replace(/\s+/g,' ').trim();}
 function speak(text){
-  const parts=text.split(/[/／]/).map(p=>p.trim()).filter(Boolean);
+  const parts=text.split(/[/／]/).map(p=>_enOnly(p)).filter(Boolean);
+  if(!parts.length)return;
   speechSynthesis.cancel();
+  const v=_getEnVoice();
   function _next(i){
     if(i>=parts.length)return;
     const u=new SpeechSynthesisUtterance(parts[i]);
-    u.lang='en-US';u.rate=0.9;const v=_getEnVoice();if(v)u.voice=v;
+    u.lang='en-US';u.rate=0.9;if(v)u.voice=v;
     if(i<parts.length-1)u.onend=()=>setTimeout(()=>_next(i+1),500);
     speechSynthesis.speak(u);
   }
