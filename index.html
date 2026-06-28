@@ -832,7 +832,18 @@ function _getEnVoice(){
   return _enVoice;
 }
 speechSynthesis.addEventListener('voiceschanged',()=>{_enVoice=null;});
-function speak(text){const u=new SpeechSynthesisUtterance(text.split('/')[0].trim());u.lang='en-US';u.rate=0.9;const v=_getEnVoice();if(v)u.voice=v;speechSynthesis.cancel();speechSynthesis.speak(u);}
+function speak(text){
+  const parts=text.split(/[/／]/).map(p=>p.trim()).filter(Boolean);
+  speechSynthesis.cancel();
+  function _next(i){
+    if(i>=parts.length)return;
+    const u=new SpeechSynthesisUtterance(parts[i]);
+    u.lang='en-US';u.rate=0.9;const v=_getEnVoice();if(v)u.voice=v;
+    if(i<parts.length-1)u.onend=()=>setTimeout(()=>_next(i+1),500);
+    speechSynthesis.speak(u);
+  }
+  _next(0);
+}
 function speakCurrent(){if(cur)speak(cur.w.e);}
 let _speakTimer=null;
 function speakAfterDelay(text){if(_speakTimer)clearTimeout(_speakTimer);_speakTimer=setTimeout(()=>{speak(text);_speakTimer=null;},1000);}
