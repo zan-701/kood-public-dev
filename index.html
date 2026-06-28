@@ -14,12 +14,13 @@
   html,body{margin:0;padding:0;}
   body{font-family:"M PLUS Rounded 1c",system-ui,sans-serif;color:var(--ink);min-height:100vh;-webkit-text-size-adjust:100%;background:radial-gradient(circle at 12% -5%,#ffe6c9 0,transparent 38%),radial-gradient(circle at 95% 8%,#ffd9e6 0,transparent 32%),var(--bg);}
   .wrap{max-width:520px;margin:0 auto;padding:14px 14px 48px;}
-  .hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 2px 14px;}
-  .logo{font-family:"Baloo 2",sans-serif;font-weight:800;font-size:26px;color:var(--accent-d);display:flex;align-items:center;gap:8px;}
+  .hdr{margin:6px 2px 14px;}
+  .hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .hdr-sub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .logo{font-family:"Baloo 2",sans-serif;font-weight:800;font-size:22px;color:var(--accent-d);}
   .who{font-size:12px;color:var(--muted);font-weight:700;}
   .hdr-gear{background:none;border:1.5px solid var(--line);border-radius:10px;font-size:18px;cursor:pointer;padding:5px 8px;line-height:1;color:var(--muted);font-family:inherit;}
   .hdr-gear.on{background:var(--accent);border-color:var(--accent-d);}
-  .hdr-right{display:flex;align-items:center;gap:6px;}
   .level-btn{background:none;border:1.5px solid var(--accent);border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;padding:5px 10px;line-height:1;color:var(--accent-d);font-family:inherit;white-space:nowrap;}
   .topbar{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:12px 14px;box-shadow:var(--shadow);margin-bottom:14px;}
   .topbar .row{display:flex;align-items:center;justify-content:space-between;font-weight:800;font-size:13px;}
@@ -175,11 +176,13 @@
 <body>
 <div class="wrap">
   <div class="hdr">
-    <div class="logo">🎯 えいごクイズ！</div>
-    <div class="hdr-right">
+    <div class="hdr-top">
+      <div class="logo">🎯 えいごクイズ！</div>
+      <button class="hdr-gear" id="settingsBtn" onclick="setView('manage')">⚙️</button>
+    </div>
+    <div class="hdr-sub">
       <button class="level-btn" id="levelBtn" onclick="openLevelModal()">📚 ...</button>
       <button class="who" id="playerBtn" onclick="openPlayerModal()">プレイヤー：<span id="playerNameDisplay">...</span> ▾</button>
-      <button class="hdr-gear" id="settingsBtn" onclick="setView('manage')">⚙️</button>
     </div>
   </div>
   <div class="topbar">
