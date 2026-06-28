@@ -536,8 +536,19 @@ async function setLevel(levelId,resetScope=true){
   if(!data)return;
   currentLevelData=data;
   state.levelId=levelId;
-  save();
   if(resetScope){scope='all';secScope=null;secFilter=['all'];}
+  else{
+    // Validate scope/secScope against new level data to fix stale cross-level values
+    if(scope!=='all'){
+      const subcats=new Set(data.sections.map(s=>s.subcat));
+      if(!subcats.has(scope)){scope='all';secScope=null;}
+    }
+    if(secScope){
+      const secIds=new Set(data.sections.map(s=>s.id));
+      if(!secIds.has(secScope))secScope=null;
+    }
+  }
+  save();
   queue=[];cur=null;
   renderLevelBtn();
   renderChips();
