@@ -473,6 +473,7 @@ async function migratePhotosIfNeeded(){
 
 /* ===== ストレージ ===== */
 let state=null;
+let scope='all',secScope=null;
 function load(){
   try{
     const r=localStorage.getItem(dataKey());
@@ -581,7 +582,7 @@ function lvBack(){_lvStep='level';renderLevelModal();}
 function closeLevelModal(){document.getElementById('levelModalBg').style.display='none';}
 
 /* ===== スコープ・単語 ===== */
-let view='quiz',scope='all',secScope=null,secFilter=['all'],queue=[],cur=null,answered=false;
+let view='quiz',secFilter=['all'],queue=[],cur=null,answered=false;
 function norm(s){return(s||'').toLowerCase().trim().replace(/\s+/g,' ').replace(/[.。]/g,'');}
 function statusOf(id){return state.prog[id]||'new';}
 function setStatus(id,s){state.prog[id]=s;save();}
