@@ -210,7 +210,7 @@
       <div class="hint hidden" id="qHint"><span id="qHintText"></span></div>
       <div class="hint hidden" id="qPartialHint" style="font-family:'Baloo 2',sans-serif;font-size:20px;font-weight:800;letter-spacing:3px;color:var(--accent-d);text-align:center"></div>
       <div class="hint-btns">
-        <button class="hintbtn" onclick="showPartialHint()">💬 ヒント（部分表示）</button>
+        <button class="hintbtn" id="hintBtn" onclick="hintBtnClick()">💬 ヒント（にほんご）</button>
         <button class="hintbtn" onclick="speakCurrent()">🔊 ヒント（えいごのおと）</button>
       </div>
       <input class="ans" id="ansInput" type="text" inputmode="latin" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="えいごで かこう" enterkeyhint="done">
@@ -795,6 +795,7 @@ function renderQuiz(){
   if(_isElem){document.getElementById('qHint').classList.add('hidden');}
   else{document.getElementById('qHint').classList.remove('hidden');}
   document.getElementById('qPartialHint').classList.add('hidden');
+  document.getElementById('hintBtn').textContent=_isElem?'💬 ヒント（にほんご）':'💬 ヒント（部分表示）';
   const inp=document.getElementById('ansInput');
   inp.style.display='';inp.value='';inp.className='ans';inp.disabled=false;
   document.getElementById('feedback').textContent='';
@@ -812,6 +813,10 @@ function makeHintMask(word){
     if(n>=6){const mid=1+Math.floor(Math.random()*(n-3));shown.add(mid);if(mid+1<n-1)shown.add(mid+1);}
     return[...w].map((c,i)=>/[a-zA-Z]/i.test(c)?(shown.has(i)?c:'〇'):c).join('');
   }).join(' ');
+}
+function hintBtnClick(){
+  if(currentLevelData?.levelId==='elem'){document.getElementById('qHint').classList.toggle('hidden');}
+  else{showPartialHint();}
 }
 function showPartialHint(){
   if(!cur)return;
