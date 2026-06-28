@@ -1325,17 +1325,28 @@ document.addEventListener('keydown',e=>{
 
 /* ===== 対戦 BGM / SE ===== */
 let _btAC=null,_btJob=null,_btNxt=0,_btIdx=0,_btPat=null,_btBpb=0,_btVol=0,_btWave='square',_btPreviewTimer=null;
-function _btACtx(){if(!_btAC||_btAC.state==='closed')_btAC=new(window.AudioContext||window.webkitAudioContext)();if(_btAC.state==='suspended')_btAC.resume();return _btAC;}
+function _btACtx(){
+  if(!_btAC||_btAC.state==='closed'||_btAC.state==='interrupted'){
+    _btAC=new(window.AudioContext||window.webkitAudioContext)();
+  }
+  if(_btAC.state==='suspended')_btAC.resume();
+  return _btAC;
+}
 function stopBtBgm(){if(_btJob){clearInterval(_btJob);_btJob=null;}_btPat=null;}
 function _btSched(){
   if(!_btPat)return;
   const ctx=_btACtx();
+  // コンテキスト再作成・長時間停止後のタイムライン不一致を修正
+  if(_btNxt<ctx.currentTime-0.5||_btNxt>ctx.currentTime+2.0)_btNxt=ctx.currentTime+0.05;
   while(_btNxt<ctx.currentTime+0.3){
     const[f,b]=_btPat[_btIdx%_btPat.length];
     if(f>0){const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type=_btWave;o.frequency.value=f;const d=_btBpb*b*0.82;g.gain.setValueAtTime(_btVol,_btNxt);g.gain.exponentialRampToValueAtTime(0.0001,_btNxt+d);o.start(_btNxt);o.stop(_btNxt+d+0.02);}
     _btNxt+=_btBpb*b;_btIdx++;
   }
 }
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&_btPat){try{_btACtx();_btSched();}catch(e){}}
+});
 const BT_BGM_PATTERNS={
   puzzle:{bpb:60/140,vol:0.055,wave:'square',pat:[[659,1],[493,1],[523,1],[587,1],[523,1],[440,1],[440,1],[0,1],[261,1],[329,1],[440,1],[493,1],[415,2],[0,2],[659,1],[523,1],[587,1],[493,1],[523,1],[440,1],[440,1],[0,1],[440,1],[493,1],[523,1],[587,1],[659,2],[0,2]]},
   rpg:{bpb:60/155,vol:0.06,wave:'square',pat:[[392,1],[0,1],[392,1],[440,1],[392,1],[349,1],[329,1],[0,1],[261,1],[0,1],[329,1],[0,1],[392,2],[0,2],[523,1],[0,1],[523,1],[587,1],[523,1],[493,1],[440,1],[0,1],[392,1],[440,1],[493,1],[440,1],[523,2],[0,2]]},
