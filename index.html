@@ -271,8 +271,11 @@
 <!-- レベル選択モーダル -->
 <div id="levelModalBg" style="display:none" onclick="closeLevelModal()">
   <div id="levelModal" onclick="event.stopPropagation()">
-    <div class="modal-title">📚 レベルをえらぶ</div>
-    <div id="levelList"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <button class="minibtn" id="lvBackBtn" style="display:none;padding:6px 10px;flex-shrink:0" onclick="lvBack()">← もどる</button>
+      <div class="modal-title" id="lvTitle" style="margin:0;flex:1">📚 レベルをえらぶ</div>
+    </div>
+    <div id="levelList" style="max-height:60vh;overflow-y:auto"></div>
     <button class="minibtn" style="width:100%;margin-top:12px" onclick="closeLevelModal()">とじる</button>
   </div>
 </div>
@@ -509,19 +512,56 @@ function renderLevelBtn(){
   const lv=LEVELS.find(l=>l.id===lid)||LEVELS[0];
   document.getElementById('levelBtn').textContent='📚 '+lv.label+' ▾';
 }
+let _lvStep='level',_lvLevelId=null;
 function openLevelModal(){
-  const lid=currentLevelData?currentLevelData.levelId:(state.levelId||'elem');
-  document.getElementById('levelList').innerHTML=LEVELS.map(lv=>
-    `<div class="prow ${lv.id===lid?'pon':''}"><button class="pname" onclick="doSetLevel('${lv.id}')">${lv.label}</button><span style="font-size:11px;color:var(--muted);font-weight:700">${lv.words.toLocaleString()}語</span></div>`
-  ).join('');
+  _lvStep='level';_lvLevelId=null;
+  renderLevelModal();
   document.getElementById('levelModalBg').style.display='flex';
 }
-async function doSetLevel(levelId){
-  closeLevelModal();
-  await setLevel(levelId);
-  answered=false;
-  nextCard();
+function renderLevelModal(){
+  const lid=currentLevelData?.levelId||(state.levelId||'elem');
+  if(_lvStep==='level'){
+    document.getElementById('lvTitle').textContent='📚 レベルをえらぶ';
+    document.getElementById('lvBackBtn').style.display='none';
+    document.getElementById('levelList').innerHTML=LEVELS.map(lv=>
+      `<div class="prow ${lv.id===lid?'pon':''}"><button class="pname" onclick="lvPickLevel('${lv.id}')">${lv.label}</button><span style="font-size:11px;color:var(--muted);font-weight:700">${lv.words.toLocaleString()}語</span></div>`
+    ).join('');
+  }else{
+    const data=levelCache[_lvLevelId];
+    const lvLabel=LEVELS.find(l=>l.id===_lvLevelId)?.label||_lvLevelId;
+    document.getElementById('lvTitle').textContent='📚 '+lvLabel;
+    document.getElementById('lvBackBtn').style.display='';
+    const isSame=_lvLevelId===lid;
+    let totW=0,totK=0;
+    for(const sec of data.sections)for(const w of sec.words){totW++;if(isSame&&statusOf(w.id)==='known')totK++;}
+    let h=`<div class="prow ${isSame&&scope==='all'?'pon':''}"><button class="pname" onclick="lvSelectSubcat('all')">ぜんぶ</button><span style="font-size:11px;color:var(--muted);font-weight:700">${isSame?totK+'/'+totW:totW}語</span></div>`;
+    const seen=new Set();
+    for(const sec of data.sections){
+      const sub=sec.subcat;
+      if(!seen.has(sub)){
+        seen.add(sub);
+        const ms=data.sections.filter(s=>s.subcat===sub);
+        let k=0,t=0;ms.forEach(s=>s.words.forEach(w=>{t++;if(isSame&&statusOf(w.id)==='known')k++;}));
+        const sf=sub.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        h+=`<div class="prow ${isSame&&scope===sub?'pon':''}"><button class="pname" onclick="lvSelectSubcat('${sf}')">${esc(sub)}</button><span style="font-size:11px;color:var(--muted);font-weight:700">${isSame?k+'/'+t:t}語</span></div>`;
+      }
+    }
+    document.getElementById('levelList').innerHTML=h;
+  }
 }
+async function lvPickLevel(levelId){
+  const data=await loadLevelData(levelId);
+  if(!data)return;
+  _lvLevelId=levelId;_lvStep='sub';
+  renderLevelModal();
+}
+async function lvSelectSubcat(subcat){
+  closeLevelModal();
+  if(_lvLevelId!==currentLevelData?.levelId)await setLevel(_lvLevelId);
+  selectScope(subcat);
+  answered=false;
+}
+function lvBack(){_lvStep='level';renderLevelModal();}
 function closeLevelModal(){document.getElementById('levelModalBg').style.display='none';}
 
 /* ===== スコープ・単語 ===== */
@@ -533,7 +573,7 @@ function scopeWords(){
   if(!currentLevelData)return[];
   const words=[];
   for(const sec of currentLevelData.sections){
-    if(scope==='all'||scope===sec.id){
+    if(scope==='all'||scope===sec.subcat){
       for(const w of sec.words)words.push({sec,w});
     }
   }
@@ -557,21 +597,25 @@ function renderProgress(){
   document.getElementById('cNew').textContent=n;
   document.getElementById('cLearn').textContent=le;
   document.getElementById('cKnown').textContent=k;
-  const secName=scope==='all'?'ぜんぶ':(currentLevelData?currentLevelData.sections.find(s=>s.id===scope)?.name||scope:scope);
+  const secName=scope==='all'?'ぜんぶ':scope;
   document.getElementById('scopeName').textContent=secName+' の すすみぐあい';
 }
 
 function renderChips(){
   if(!currentLevelData){document.getElementById('chips').innerHTML='';return;}
   let tot=0,totK=0;
-  for(const sec of currentLevelData.sections){
-    for(const w of sec.words){tot++;if(statusOf(w.id)==='known')totK++;}
-  }
+  for(const sec of currentLevelData.sections)for(const w of sec.words){tot++;if(statusOf(w.id)==='known')totK++;}
   let h=`<button class="chip ${scope==='all'?'on':''}" onclick="selectScope('all')">ぜんぶ <small>${totK}/${tot}</small></button>`;
+  const seen=new Set();
   for(const sec of currentLevelData.sections){
-    let k=0;
-    sec.words.forEach(w=>{if(statusOf(w.id)==='known')k++;});
-    h+=`<button class="chip ${scope===sec.id?'on':''}" onclick="selectScope('${sec.id}')">${esc(sec.name)} <small>${k}/${sec.words.length}</small></button>`;
+    const sub=sec.subcat;
+    if(!seen.has(sub)){
+      seen.add(sub);
+      const ms=currentLevelData.sections.filter(s=>s.subcat===sub);
+      let k=0,t=0;ms.forEach(s=>s.words.forEach(w=>{t++;if(statusOf(w.id)==='known')k++;}));
+      const sf=sub.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      h+=`<button class="chip ${scope===sub?'on':''}" onclick="selectScope('${sf}')">${esc(sub)} <small>${k}/${t}</small></button>`;
+    }
   }
   document.getElementById('chips').innerHTML=h;
 }
@@ -667,7 +711,7 @@ document.getElementById('qAddPhoto').addEventListener('click',()=>{if(cur)openSh
 function renderList(){
   const body=document.getElementById('listBody');
   if(!currentLevelData){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:20px">レベルをえらんでください</p>';return;}
-  const secs=scope==='all'?currentLevelData.sections:currentLevelData.sections.filter(s=>s.id===scope);
+  const secs=scope==='all'?currentLevelData.sections:currentLevelData.sections.filter(s=>s.subcat===scope);
   let h='';
   if(scope==='all'){
     const ls=[];
@@ -758,7 +802,7 @@ function setView(v){
   else renderStorageInfo();
 }
 function resetScope(){
-  const label=scope==='all'?'ぜんぶ':(currentLevelData?currentLevelData.sections.find(s=>s.id===scope)?.name||scope:scope);
+  const label=scope==='all'?'ぜんぶ':scope;
   if(!confirm(label+' の学習記録を0%にもどします。よろしいですか？'))return;
   scopeWords().forEach(({w})=>{delete state.prog[w.id];});
   save();cur=null;queue=[];renderProgress();renderChips();if(view==='quiz')nextCard();
@@ -843,7 +887,7 @@ async function openBattleSetup(){
     const isNew=!bts.pstates[p.id];
     bts.pstates[p.id]={levelId,levelData,prog:ps.prog||{}};
     if(isNew||!bts.selSets[p.id]){
-      bts.selSets[p.id]=levelData?levelData.sections.map(s=>s.id):[];
+      bts.selSets[p.id]=levelData?[...new Set(levelData.sections.map(s=>s.subcat))]:[];
     }
   }
   bts.selPids=bts.selPids.filter(id=>playerConfig.players.some(p=>p.id===id));
@@ -880,11 +924,14 @@ function renderBtSetup(){
     if(!levelData||!levelData.sections.length){
       h+=`<div class="bt-set-box"><div class="bt-set-hdr"><span>${esc(p.name)} (${levelLabel})</span><span style="font-size:11px;color:var(--muted)">データなし</span></div></div>`;return;
     }
-    const allOn=levelData.sections.every(s=>(bts.selSets[pid]||[]).includes(s.id));
+    const subcats=[...new Set(levelData.sections.map(s=>s.subcat))];
+    const allOn=subcats.every(sub=>(bts.selSets[pid]||[]).includes(sub));
     h+=`<div class="bt-set-box"><div class="bt-set-hdr"><span>▼ ${esc(p.name)} <span style="font-size:11px;color:var(--muted)">${levelLabel}</span></span><button class="bt-allbtn" onclick="btSelAll('${pid}',${allOn?'false':'true'})">${allOn?'全解除':'全選択'}</button></div><div class="bt-set-rows">`;
-    levelData.sections.forEach(sec=>{
-      const chk=(bts.selSets[pid]||[]).includes(sec.id);
-      h+=`<label class="bt-chk"><input type="checkbox" ${chk?'checked':''} onchange="btTglSet('${pid}','${sec.id}',this.checked)"><span>${esc(sec.name)}</span><span style="margin-left:auto;color:var(--muted);font-size:11px">${sec.words.length}語</span></label>`;
+    subcats.forEach(sub=>{
+      const chk=(bts.selSets[pid]||[]).includes(sub);
+      const wc=levelData.sections.filter(s=>s.subcat===sub).reduce((n,s)=>n+s.words.length,0);
+      const sf=sub.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      h+=`<label class="bt-chk"><input type="checkbox" ${chk?'checked':''} onchange="btTglSet('${pid}','${sf}',this.checked)"><span>${esc(sub)}</span><span style="margin-left:auto;color:var(--muted);font-size:11px">${wc}語</span></label>`;
     });
     h+=`</div></div>`;
   });
@@ -911,7 +958,7 @@ function renderBtSetup(){
 
 function btTglPlayer(id){const i=bts.selPids.indexOf(id);if(i>=0){if(bts.selPids.length>1)bts.selPids.splice(i,1);}else bts.selPids.push(id);renderBtSetup();}
 function btTglSet(pid,sid,on){if(!bts.selSets[pid])bts.selSets[pid]=[];if(on){if(!bts.selSets[pid].includes(sid))bts.selSets[pid].push(sid);}else bts.selSets[pid]=bts.selSets[pid].filter(x=>x!==sid);renderBtSetup();}
-function btSelAll(pid,on){const ld=bts.pstates[pid]?.levelData;bts.selSets[pid]=on&&ld?ld.sections.map(s=>s.id):[];renderBtSetup();}
+function btSelAll(pid,on){const ld=bts.pstates[pid]?.levelData;bts.selSets[pid]=on&&ld?[...new Set(ld.sections.map(s=>s.subcat))]:[];renderBtSetup();}
 function btSetN(n){bts.perPlayer=n;renderBtSetup();}
 function btSetT(t){bts.timeLim=t;renderBtSetup();}
 function btSetOrder(o){bts.order=o;renderBtSetup();}
@@ -937,7 +984,7 @@ async function btGo(){
     const {levelData}=bts.pstates[p.id];
     let words=[];
     for(const sec of levelData.sections){
-      if((bts.selSets[p.id]||[]).includes(sec.id)){
+      if((bts.selSets[p.id]||[]).includes(sec.subcat)){
         for(const w of sec.words)words.push({sec,w});
       }
     }
