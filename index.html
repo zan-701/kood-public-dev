@@ -787,6 +787,9 @@ function _getEnVoice(){
 speechSynthesis.addEventListener('voiceschanged',()=>{_enVoice=null;});
 function speak(text){const u=new SpeechSynthesisUtterance(text.split('/')[0].trim());u.lang='en-US';u.rate=0.9;const v=_getEnVoice();if(v)u.voice=v;speechSynthesis.cancel();speechSynthesis.speak(u);}
 function speakCurrent(){if(cur)speak(cur.w.e);}
+let _speakTimer=null;
+function speakAfterDelay(text){if(_speakTimer)clearTimeout(_speakTimer);_speakTimer=setTimeout(()=>{speak(text);_speakTimer=null;},1000);}
+function cancelSpeakTimer(){if(_speakTimer){clearTimeout(_speakTimer);_speakTimer=null;}}
 function playSound(notes){try{const ctx=_getSfxCtx();const t=ctx.currentTime;notes.forEach(([f,s,d])=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0.28,t+s);g.gain.exponentialRampToValueAtTime(0.001,t+s+d);o.start(t+s);o.stop(t+s+d);});}catch(e){}}
 function playCorrect(){try{const ctx=_getSfxCtx();const t=ctx.currentTime;[[392,0,0.09,'sine'],[523,0.08,0.09,'sine'],[659,0.16,0.09,'sine'],[523,0.27,0.75,'triangle'],[659,0.27,0.75,'triangle'],[784,0.27,0.75,'triangle'],[1047,0.27,0.55,'sine']].forEach(([f,s,d,tp])=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type=tp;o.frequency.value=f;g.gain.setValueAtTime(0.22,t+s);g.gain.exponentialRampToValueAtTime(0.001,t+s+d);o.start(t+s);o.stop(t+s+d);});}catch(e){}}
 function playWrong(){playSound([[311,0,0.28],[233,0.22,0.38]]);}
@@ -802,6 +805,7 @@ function check(){
   document.getElementById('nextBtns').style.display='flex';
   if(ok){inp.classList.add('ok');fb.innerHTML='🎉 せいかい！ <span class="correctword">'+cur.w.e+'</span>';fb.style.color='var(--known)';confetti();playCorrect();}
   else{inp.classList.add('ng');fb.innerHTML='おしい！ こたえ → <span class="correctword">'+cur.w.e+'</span>';fb.style.color='var(--learn)';document.getElementById('qHint').classList.remove('hidden');playWrong();}
+  speakAfterDelay(cur.w.e);
   document.getElementById('readBtn').style.display='';
 }
 function reveal(){
@@ -813,8 +817,9 @@ function reveal(){
   document.getElementById('answerBtns').style.display='none';
   document.getElementById('nextBtns').style.display='flex';
   document.getElementById('readBtn').style.display='';
+  speakAfterDelay(cur.w.e);
 }
-function markAndNext(s){if(cur)setStatus(cur.w.id,s);renderProgress();renderChips();nextCard();}
+function markAndNext(s){cancelSpeakTimer();if(cur)setStatus(cur.w.id,s);renderProgress();renderChips();nextCard();}
 document.getElementById('ansInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(!answered)check();}});
 
 /* ===== いちらん ===== */
