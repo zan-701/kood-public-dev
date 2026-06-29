@@ -268,8 +268,8 @@
         <button class="btn primary" onclick="check()">こたえあわせ</button>
       </div>
       <div class="btns" id="nextBtns" style="display:none">
-        <button class="btn ghost" onclick="markAndNext('learn')">もういちど</button>
-        <button class="btn green" onclick="markAndNext('known')">おぼえた！</button>
+        <button class="btn ghost" onclick="againCard()">もういちど</button>
+        <button class="btn primary" onclick="goNext()">次の問題 →</button>
       </div>
     </div>
     <div class="footer"><button class="reset" onclick="resetScope()">▶ この はんいの きろくを リセット</button></div>
@@ -584,7 +584,7 @@ function load(){
     const r=localStorage.getItem(dataKey());
     if(r){
       const parsed=JSON.parse(r);
-      if(parsed.units){state={levelId:'elem',prog:{},streak:0,bestStreak:0,lastStudy:null,studyDates:[]};scope='all';secScope=null;return;}
+      if(parsed.units){state={levelId:'elem',prog:{},streak:0,bestStreak:0,lastStudy:null,studyDates:[],correctCount:{},wrongCount:{}};scope='all';secScope=null;return;}
       state={
         levelId:parsed.levelId||'elem',
         prog:parsed.prog||{},
@@ -592,13 +592,15 @@ function load(){
         bestStreak:parsed.bestStreak||0,
         lastStudy:parsed.lastStudy||null,
         studyDates:parsed.studyDates||[],
+        correctCount:parsed.correctCount||{},
+        wrongCount:parsed.wrongCount||{},
       };
       scope=parsed.scope||'all';
       secScope=parsed.secScope||null;
       return;
     }
   }catch(e){}
-  state={levelId:'elem',prog:{},streak:0,bestStreak:0,lastStudy:null,studyDates:[]};scope='all';secScope=null;
+  state={levelId:'elem',prog:{},streak:0,bestStreak:0,lastStudy:null,studyDates:[],correctCount:{},wrongCount:{}};scope='all';secScope=null;
 }
 function save(){
   try{localStorage.setItem(dataKey(),JSON.stringify({...state,scope,secScope}));}
@@ -890,12 +892,44 @@ function selectScope(id){
 function selectSection(secId){secScope=secId;cur=null;queue=[];save();renderChips();renderProgress();if(view==='quiz')nextCard();else if(view==='list')renderList();}
 
 /* ===== クイズ ===== */
+function onCorrect(id){
+  if(!state.correctCount)state.correctCount={};
+  const cc=(state.correctCount[id]||0)+1;
+  state.correctCount[id]=cc;
+  if(cc>=2){state.prog[id]='known';}
+  else if(statusOf(id)!=='known'){state.prog[id]='learn';}
+  save();
+}
+function onWrong(id){
+  if(!state.correctCount)state.correctCount={};
+  if(!state.wrongCount)state.wrongCount={};
+  state.correctCount[id]=0;
+  state.wrongCount[id]=(state.wrongCount[id]||0)+1;
+  state.prog[id]='learn';
+  save();
+}
+function againCard(){cancelSpeakTimer();if(!cur){nextCard();return;}renderQuiz();}
+function goNext(){cancelSpeakTimer();renderProgress();renderChips();nextCard();}
 function buildQueue(){
   const pool=scopeWords();
-  let w=[];
-  pool.forEach(it=>{const s=statusOf(it.w.id);let n=s==='known'?1:s==='learn'?4:3;for(let i=0;i<n;i++)w.push(it);});
-  for(let i=w.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[w[i],w[j]]=[w[j],w[i]];}
-  queue=w;
+  const failing=[],unseen=[],ontrack=[],known=[];
+  const cc=id=>(state.correctCount||{})[id]||0;
+  const wc=id=>(state.wrongCount||{})[id]||0;
+  pool.forEach(it=>{
+    const s=statusOf(it.w.id);
+    if(s==='known')known.push(it);
+    else if(s==='new')unseen.push(it);
+    else if(cc(it.w.id)===0)failing.push(it);
+    else ontrack.push(it);
+  });
+  const byWrong=arr=>arr.sort((a,b)=>wc(b.w.id)-wc(a.w.id));
+  const shuffle=arr=>{for(let i=arr.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;};
+  byWrong(failing);shuffle(unseen);byWrong(ontrack);
+  const nonKnown=failing.length+unseen.length+ontrack.length;
+  let kr;
+  if(nonKnown===0){kr=shuffle([...known]);}
+  else{const n=Math.min(5,Math.max(known.length>0?1:0,Math.floor(known.length*.1)));kr=shuffle([...known]).slice(0,n);}
+  queue=[...failing,...unseen,...ontrack,...kr];
 }
 function nextCard(){
   if(scopeWords().length===0){renderEmptyQuiz();return;}
@@ -931,7 +965,9 @@ function renderQuiz(){
   const c=document.getElementById('quizCard');
   c.classList.remove('pop');void c.offsetWidth;c.classList.add('pop');
   document.getElementById('qTag').textContent=currentLevelData?.levelId==='elem'?displaySubcatName(cur.sec.subcat):cur.sec.name;
-  const s=SL[statusOf(cur.w.id)];
+  const _cc=(state.correctCount||{})[cur.w.id]||0;
+  const _st=statusOf(cur.w.id);
+  const s=_st==='known'?['おぼえた','var(--known)','#fff']:_st==='learn'&&_cc===1?['⭐ あとひとつ','#ff9500','#fff']:SL[_st];
   const st=document.getElementById('qStat');
   st.textContent=s[0];st.style.background=s[1];st.style.color=s[2];
   document.getElementById('qPic').innerHTML=picHtml(cur.w,true);
@@ -1014,6 +1050,7 @@ function check(){
   const v=norm(inp.value);if(!v){inp.focus();return;}
   const ok=accepted(cur.w).includes(v);
   answered=true;inp.disabled=true;
+  if(ok)onCorrect(cur.w.id);else onWrong(cur.w.id);
   const fb=document.getElementById('feedback');
   document.getElementById('answerBtns').style.display='none';
   document.getElementById('nextBtns').style.display='flex';
@@ -1026,6 +1063,7 @@ function check(){
 function reveal(){
   if(answered||!cur)return;
   answered=true;document.getElementById('ansInput').disabled=true;
+  onWrong(cur.w.id);
   document.getElementById('qHint').classList.remove('hidden');
   document.getElementById('feedback').innerHTML='こたえ → <span class="correctword">'+cur.w.e+'</span>';
   document.getElementById('feedback').style.color='var(--ink)';
@@ -1035,7 +1073,7 @@ function reveal(){
   document.getElementById('detailBtn').style.display='';
   playWrong();speakAfterDelay(cur.w.e);
 }
-function markAndNext(s){cancelSpeakTimer();if(cur)setStatus(cur.w.id,s);renderProgress();renderChips();nextCard();}
+
 document.getElementById('ansInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(!answered)check();}});
 
 /* ===== いちらん ===== */
@@ -1125,7 +1163,7 @@ function saveSheet(){
 /* ===== 書き出し・取り込み ===== */
 function dlJson(obj,filename){const blob=new Blob([JSON.stringify(obj)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
 function datestamp(){const d=new Date();return d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2);}
-function exportFull(){dlJson({type:'full',levelId:state.levelId,prog:state.prog,photos:photoCache},'eitango-backup-'+datestamp()+'.json');}
+function exportFull(){dlJson({type:'full',levelId:state.levelId,prog:state.prog,correctCount:state.correctCount||{},wrongCount:state.wrongCount||{},streak:state.streak||0,bestStreak:state.bestStreak||0,lastStudy:state.lastStudy||null,studyDates:state.studyDates||[],photos:photoCache},'eitango-backup-'+datestamp()+'.json');}
 document.getElementById('importFFile').addEventListener('change',function(){
   const f=this.files[0];this.value='';if(!f)return;
   const r=new FileReader();
@@ -1133,7 +1171,7 @@ document.getElementById('importFFile').addEventListener('change',function(){
     try{
       const obj=JSON.parse(e.target.result);
       if(!confirm('⚠️ 全データを復元します。\n進捗・写真がすべて置きかわります。\nよろしいですか？'))return;
-      state={levelId:obj.levelId||'elem',prog:obj.prog||{}};
+      state={levelId:obj.levelId||'elem',prog:obj.prog||{},streak:obj.streak||0,bestStreak:obj.bestStreak||0,lastStudy:obj.lastStudy||null,studyDates:obj.studyDates||[],correctCount:obj.correctCount||{},wrongCount:obj.wrongCount||{}};
       await clearPhotosForPlayer(playerConfig.current);
       for(const[wid,b64]of Object.entries(obj.photos||{}))await savePhotoDB(wid,b64);
       save();
@@ -1274,12 +1312,12 @@ function resetScope(){
   scopeWords().forEach(({w})=>{delete state.prog[w.id];});
   save();cur=null;queue=[];renderProgress();renderChips();if(view==='quiz')nextCard();
 }
-function resetAllProgress(){if(!confirm('ぜんぶの学習記録を消します。写真は残ります。よろしいですか？'))return;state.prog={};save();renderAll();}
+function resetAllProgress(){if(!confirm('ぜんぶの学習記録を消します。写真は残ります。よろしいですか？'))return;state.prog={};state.correctCount={};state.wrongCount={};save();renderAll();}
 async function deleteAllData(){
   if(!confirm('⚠️ 全データを削除します。\n写真・進捗がすべて削除されます。\n削除すると元に戻せません。\nそれでもよいですか？'))return;
   if(!confirm('本当に削除しますか？\nこの操作は取り消せません。'))return;
   await clearPhotosForPlayer(playerConfig.current);
-  state={levelId:state.levelId||'elem',prog:{}};
+  state={levelId:state.levelId||'elem',prog:{},streak:0,bestStreak:0,lastStudy:null,studyDates:[],correctCount:{},wrongCount:{}};
   save();renderAll();alert('削除しました。');
 }
 function renderAll(){renderChips();renderProgress();if(view==='quiz'){cur=null;nextCard();}else if(view==='list')renderList();else renderStorageInfo();}
