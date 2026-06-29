@@ -208,7 +208,7 @@
       <div class="tag" id="qTag"></div><div class="stat" id="qStat"></div>
       <div class="pic" id="qPic"></div>
       <div class="hint hidden" id="qHint"><span id="qHintText"></span></div>
-      <div class="hint hidden" id="qPartialHint" style="font-family:'Baloo 2',sans-serif;font-size:20px;font-weight:800;letter-spacing:3px;color:var(--accent-d);text-align:center"></div>
+      <div class="hint" id="qPartialHint" style="display:none;font-family:'Baloo 2',sans-serif;font-size:20px;font-weight:800;letter-spacing:3px;color:var(--accent-d);text-align:center"></div>
       <div class="hint-btns">
         <button class="hintbtn" id="hintBtn" onclick="hintBtnClick()">💬 ヒント（にほんご）</button>
         <button class="hintbtn" onclick="speakCurrent()">🔊 ヒント（えいごのおと）</button>
@@ -781,7 +781,7 @@ function renderEmptyQuiz(){
   document.getElementById('qPic').innerHTML='<div class="ph">レベルを選んで<br>セクションをえらんでね</div>';
   document.getElementById('ansInput').style.display='none';
   document.getElementById('answerBtns').style.display='none';
-  document.getElementById('qPartialHint').classList.add('hidden');
+  document.getElementById('qPartialHint').style.display='none';
   _partialHintMask=null;
   const isElem=currentLevelData?.levelId==='elem';
   document.getElementById('qHint').classList.toggle('hidden',isElem);
@@ -810,7 +810,7 @@ function renderQuiz(){
   const _isElem=currentLevelData?.levelId==='elem';
   if(_isElem){document.getElementById('qHint').classList.add('hidden');}
   else{document.getElementById('qHint').classList.remove('hidden');}
-  document.getElementById('qPartialHint').classList.add('hidden');
+  document.getElementById('qPartialHint').style.display='none';
   _partialHintMask=_isElem?null:makeHintMask(cur.w.e);
   document.getElementById('hintBtn').textContent=_isElem?'💬 ヒント（にほんご）':'💬 ヒント（部分表示）';
   const inp=document.getElementById('ansInput');
@@ -839,9 +839,9 @@ function hintBtnClick(){
 function showPartialHint(){
   if(!cur)return;
   const el=document.getElementById('qPartialHint');
-  if(!el.classList.contains('hidden')){el.classList.add('hidden');return;}
+  if(el.style.display!=='none'){el.style.display='none';return;}
   el.textContent=_partialHintMask||makeHintMask(cur.w.e);
-  el.classList.remove('hidden');
+  el.style.display='';
 }
 let _enVoice=null;
 function _getEnVoice(){
