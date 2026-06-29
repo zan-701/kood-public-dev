@@ -171,6 +171,46 @@
   .bt-rrow{display:flex;align-items:center;gap:10px;padding:8px 0;font-weight:800;font-size:15px;border-bottom:1px solid var(--line);}
   .bt-rrow:last-child{border-bottom:none;}
   .bt-rwinner{font-size:20px;font-weight:800;color:var(--accent-d);margin-bottom:24px;}
+
+  /* ===== ストリーク・ステータス ===== */
+  .streak-badge{background:linear-gradient(135deg,#ff6b35,#ff9500);color:#fff;font-weight:800;font-size:13px;border:none;border-radius:20px;padding:4px 10px;cursor:pointer;white-space:nowrap;font-family:inherit;line-height:1.4;}
+  .stat-card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);}
+  .stat-heading{font-weight:800;font-size:15px;margin-bottom:10px;color:var(--ink);}
+  .stat-total-row{display:flex;align-items:baseline;gap:4px;font-weight:800;font-size:15px;}
+  .stat-pct{font-weight:800;color:var(--accent-d);margin-left:8px;}
+  .prog-bar-wrap{background:#eee;border-radius:8px;height:10px;overflow:hidden;margin-top:8px;}
+  .prog-bar-fill{height:100%;background:linear-gradient(90deg,#ffd23f,#3bb273);border-radius:8px;transition:width .5s;}
+  .streak-main{display:flex;align-items:baseline;gap:6px;margin-bottom:12px;}
+  .streak-big{font-size:52px;font-weight:900;color:var(--accent-d);line-height:1;}
+  .streak-unit{font-size:18px;font-weight:800;}
+  .streak-best{font-size:12px;color:#999;}
+  .cal-title{font-weight:800;text-align:center;margin-bottom:8px;font-size:13px;color:var(--muted);}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+  .cal-dh{text-align:center;font-size:10px;color:#bbb;padding:2px 0;font-weight:700;}
+  .cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:11px;border-radius:50%;color:#ccc;font-weight:600;}
+  .cal-day.studied{background:var(--accent);color:#fff;font-weight:800;}
+  .cal-day.today{outline:2px solid var(--accent-d);outline-offset:-1px;color:var(--accent-d);font-weight:800;}
+  .cal-day.studied.today{background:var(--accent-d);color:#fff;outline:none;}
+  .lv-row{border-bottom:1px solid var(--line);}
+  .lv-row:last-child{border-bottom:none;}
+  .lv-header{display:flex;align-items:center;gap:8px;padding:11px 0;cursor:pointer;}
+  .lv-label{font-weight:800;font-size:14px;min-width:72px;}
+  .lv-bar-wrap{flex:1;background:#eee;border-radius:6px;height:8px;overflow:hidden;}
+  .lv-bar-fill{height:100%;background:linear-gradient(90deg,#ffd23f,#3bb273);border-radius:6px;transition:width .4s;}
+  .lv-pct{font-size:12px;color:#999;white-space:nowrap;min-width:64px;text-align:right;}
+  .lv-chevron{font-size:12px;color:#bbb;transition:transform .2s;}
+  .lv-body{display:none;}
+  .lv-body.open{display:block;}
+  .sec-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-bottom:1px solid #f5f5f5;cursor:pointer;border-radius:8px;}
+  .sec-item:last-child{border-bottom:none;}
+  .sec-item:active{background:#f5f5f5;}
+  .sec-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+  .sec-dot.clear{background:#4CAF50;}
+  .sec-dot.doing{background:#FF9800;}
+  .sec-dot.none{background:#ddd;}
+  .sec-name{font-size:13px;flex:1;}
+  .sec-count{font-size:11px;color:#999;white-space:nowrap;}
+  .sec-arrow{font-size:11px;color:#ccc;}
 </style>
 </head>
 <body>
@@ -178,7 +218,10 @@
   <div class="hdr">
     <div class="hdr-top">
       <div class="logo">🎯 えいごクイズ！</div>
-      <button class="hdr-gear" id="settingsBtn" onclick="setView('manage')">⚙️</button>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button id="streakBadge" class="streak-badge" onclick="setView('status')" style="display:none">🔥<span id="streakCount">0</span>日</button>
+        <button class="hdr-gear" id="settingsBtn" onclick="setView('manage')">⚙️</button>
+      </div>
     </div>
     <div class="hdr-sub">
       <button class="level-btn" id="levelBtn" onclick="openLevelModal()">📚 ...</button>
@@ -197,6 +240,7 @@
   <div class="tabs">
     <button class="tab on" id="tabQuiz" onclick="setView('quiz')">✏️ れんしゅう</button>
     <button class="tab" id="tabList" onclick="setView('list')">📋 いちらん</button>
+    <button class="tab" id="tabStatus" onclick="setView('status')">📊<small>せいせき</small></button>
     <button class="tab" id="tabBattle" onclick="openBattleSetup()">⚔️ たいせん<small>2〜5人で対戦</small></button>
   </div>
   <div id="secFilterRow"></div>
@@ -236,8 +280,42 @@
     <div id="listBody"></div>
   </div>
 
+  <!-- STATUS -->
+  <div id="statusView" style="display:none;padding:4px 0 16px">
+
+    <div class="stat-card">
+      <div class="stat-heading">📚 ぜんたいのせいせき</div>
+      <div class="stat-total-row">
+        <span id="statKnownTotal">0</span>/<span id="statGrandTotal">0</span>語
+        <span id="statPctTotal" class="stat-pct">0%</span>
+      </div>
+      <div class="prog-bar-wrap"><div id="statBarTotal" class="prog-bar-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-heading">🔥 ストリーク</div>
+      <div class="streak-main">
+        <span id="statStreakNum" class="streak-big">0</span>
+        <span class="streak-unit">日連続</span>
+        <span class="streak-best">（最長 <span id="statBestStreak">0</span>日）</span>
+      </div>
+      <div id="streakCalendar"></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-heading">📊 レベルべつ</div>
+      <div id="levelAccordion"></div>
+    </div>
+
+  </div>
+
   <!-- MANAGE -->
   <div id="manageView" style="display:none">
+    <div class="panel" style="cursor:pointer" onclick="setView('status')">
+      <h3>🔥 ストリーク</h3>
+      <div id="manageStreakInfo" style="font-size:13px;font-weight:700;color:var(--muted)">読み込み中…</div>
+      <div style="font-size:11px;color:var(--accent-d);margin-top:6px;font-weight:800">→ 📊 くわしいせいせきをみる</div>
+    </div>
     <div class="panel">
       <h3>📊 ストレージ使用量</h3>
       <div id="storageInfo">読み込み中…</div>
@@ -414,6 +492,7 @@ async function switchPlayer(id){
   await migratePhotosIfNeeded();
   await setLevel(state.levelId||'elem',false);
   renderPlayerDisplay();
+  renderStreakBadge();
   closePlayerModal();
   setView('quiz');
 }
@@ -505,20 +584,70 @@ function load(){
     const r=localStorage.getItem(dataKey());
     if(r){
       const parsed=JSON.parse(r);
-      if(parsed.units){state={levelId:'elem',prog:{}};scope='all';secScope=null;return;}
-      state={levelId:parsed.levelId||'elem',prog:parsed.prog||{}};
+      if(parsed.units){state={levelId:'elem',prog:{},streak:0,bestStreak:0,lastStudy:null,studyDates:[]};scope='all';secScope=null;return;}
+      state={
+        levelId:parsed.levelId||'elem',
+        prog:parsed.prog||{},
+        streak:parsed.streak||0,
+        bestStreak:parsed.bestStreak||0,
+        lastStudy:parsed.lastStudy||null,
+        studyDates:parsed.studyDates||[],
+      };
       scope=parsed.scope||'all';
       secScope=parsed.secScope||null;
       return;
     }
   }catch(e){}
-  state={levelId:'elem',prog:{}};scope='all';secScope=null;
+  state={levelId:'elem',prog:{},streak:0,bestStreak:0,lastStudy:null,studyDates:[]};scope='all';secScope=null;
 }
 function save(){
   try{localStorage.setItem(dataKey(),JSON.stringify({...state,scope,secScope}));}
   catch(e){alert('ほぞんできませんでした。バックアップを取ってください。');}
 }
 initPlayers();load();
+
+/* ===== ストリーク ===== */
+const LEVEL_TOTALS={elem:473,junior:5592,high:1797,other:4137,eiken:10488};
+const LEVEL_LABELS={elem:'小学_塾',junior:'中学',high:'高校',other:'その他',eiken:'英検'};
+function updateStreak(){
+  const today=new Date().toISOString().slice(0,10);
+  if(state.lastStudy===today)return;
+  const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  state.streak=(state.lastStudy===yesterday)?(state.streak||0)+1:1;
+  if(state.streak>(state.bestStreak||0))state.bestStreak=state.streak;
+  state.lastStudy=today;
+  if(!state.studyDates)state.studyDates=[];
+  if(!state.studyDates.includes(today)){
+    state.studyDates.push(today);
+    const cutoff=new Date(Date.now()-60*86400000).toISOString().slice(0,10);
+    state.studyDates=state.studyDates.filter(d=>d>=cutoff);
+  }
+  save();
+  renderStreakBadge();
+}
+function renderStreakBadge(){
+  const n=state.streak||0;
+  document.getElementById('streakCount').textContent=n;
+  document.getElementById('streakBadge').style.display=n>0?'':'none';
+}
+function calcSectionStatus(sec){
+  let known=0,learn=0;
+  for(const w of sec.words){const s=statusOf(w.id);if(s==='known')known++;else if(s==='learn')learn++;}
+  const t=sec.words.length;
+  if(!t)return'none';
+  if(known===t)return'clear';
+  if(known>0||learn>0)return'doing';
+  return'none';
+}
+function quickLevelStats(){
+  const stats={};
+  for(const lv of Object.keys(LEVEL_TOTALS))stats[lv]={known:0,learn:0,total:LEVEL_TOTALS[lv]};
+  for(const[id,st]of Object.entries(state.prog)){
+    const lv=id.split('_')[0];
+    if(stats[lv]){if(st==='known')stats[lv].known++;else if(st==='learn')stats[lv].learn++;}
+  }
+  return stats;
+}
 
 /* ===== レベル ===== */
 async function loadLevelData(levelId){
@@ -880,6 +1009,7 @@ function playWrong(){playSound([[311,0,0.28],[233,0.22,0.38]]);}
 function accepted(w){return w.e.split('/').map(x=>norm(x)).filter(Boolean);}
 function check(){
   if(answered||!cur)return;
+  updateStreak();
   const inp=document.getElementById('ansInput');
   const v=norm(inp.value);if(!v){inp.focus();return;}
   const ok=accepted(cur.w).includes(v);
@@ -1014,18 +1144,124 @@ document.getElementById('importFFile').addEventListener('change',function(){
   };r.readAsText(f);
 });
 
+/* ===== ステータス画面 ===== */
+function renderStreakCalendar(){
+  const now=new Date();
+  const y=now.getFullYear(),m=now.getMonth();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const firstDow=(new Date(y,m,1).getDay()+6)%7;
+  const todayStr=now.toISOString().slice(0,10);
+  const dates=state.studyDates||[];
+  let html=`<div class="cal-title">${y}年${m+1}月</div><div class="cal-grid">`;
+  ['月','火','水','木','金','土','日'].forEach(d=>html+=`<div class="cal-dh">${d}</div>`);
+  for(let i=0;i<firstDow;i++)html+='<div></div>';
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const cl=[dates.includes(ds)?'studied':'',ds===todayStr?'today':''].join(' ').trim();
+    html+=`<div class="cal-day ${cl}">${d}</div>`;
+  }
+  html+='</div>';
+  document.getElementById('streakCalendar').innerHTML=html;
+}
+function renderStatusView(){
+  const lvStats=quickLevelStats();
+  const grandTotal=Object.values(LEVEL_TOTALS).reduce((s,v)=>s+v,0);
+  const totalKnown=Object.values(lvStats).reduce((s,v)=>s+v.known,0);
+  const pct=Math.round(totalKnown/grandTotal*100);
+  document.getElementById('statKnownTotal').textContent=totalKnown.toLocaleString();
+  document.getElementById('statGrandTotal').textContent=grandTotal.toLocaleString();
+  document.getElementById('statPctTotal').textContent=pct+'%';
+  document.getElementById('statBarTotal').style.width=pct+'%';
+  document.getElementById('statStreakNum').textContent=state.streak||0;
+  document.getElementById('statBestStreak').textContent=state.bestStreak||0;
+  renderStreakCalendar();
+  const acc=document.getElementById('levelAccordion');
+  acc.innerHTML=Object.keys(LEVEL_TOTALS).map(lv=>{
+    const {known,total}=lvStats[lv];
+    const p=Math.round(known/total*100);
+    return`<div class="lv-row" id="lvrow_${lv}">
+      <div class="lv-header" onclick="toggleLevelAccordion('${lv}')">
+        <span class="lv-label">${LEVEL_LABELS[lv]}</span>
+        <div class="lv-bar-wrap"><div class="lv-bar-fill" style="width:${p}%"></div></div>
+        <span class="lv-pct">${known.toLocaleString()}/${total.toLocaleString()}</span>
+        <span class="lv-chevron" id="chev_${lv}">▶</span>
+      </div>
+      <div class="lv-body" id="lvbody_${lv}"></div>
+    </div>`;
+  }).join('');
+}
+async function toggleLevelAccordion(lv){
+  const body=document.getElementById('lvbody_'+lv);
+  const chev=document.getElementById('chev_'+lv);
+  const isOpen=body.classList.contains('open');
+  if(isOpen){body.classList.remove('open');chev.style.transform='';return;}
+  body.classList.add('open');
+  chev.style.transform='rotate(90deg)';
+  if(body.dataset.loaded)return;
+  body.dataset.loaded='1';
+  body.innerHTML='<div style="padding:10px;color:var(--muted);font-size:13px">読み込み中…</div>';
+  const data=await loadLevelData(lv);
+  if(!data){body.innerHTML='<div style="padding:10px;color:var(--learn);font-size:13px">読み込み失敗</div>';return;}
+  const seenSubcats=new Set();
+  let html='<div>';
+  for(const sec of data.sections){
+    const subcat=sec.subcat||sec.name;
+    let subsecs=data.sections.filter(s=>(s.subcat||s.name)===subcat);
+    if(seenSubcats.has(subcat))continue;
+    seenSubcats.add(subcat);
+    const isElemLevel=(data.levelId==='elem');
+    if(isElemLevel){
+      const st=calcSectionStatus(sec);
+      const known=sec.words.filter(w=>statusOf(w.id)==='known').length;
+      html+=`<div class="sec-item" onclick="goToSection('${data.levelId}','${subcat}','${sec.id}')">
+        <span class="sec-dot ${st}"></span>
+        <span class="sec-name">${esc(sec.name)}</span>
+        <span class="sec-count">${known}/${sec.words.length}</span>
+        <span class="sec-arrow">›</span>
+      </div>`;
+    }else{
+      let allKnown=0,allTotal=0,anyDoing=false,allClear=true;
+      for(const s of subsecs){
+        const st=calcSectionStatus(s);
+        const kn=s.words.filter(w=>statusOf(w.id)==='known').length;
+        allKnown+=kn;allTotal+=s.words.length;
+        if(st!=='clear')allClear=false;
+        if(st==='doing'||st==='clear')anyDoing=true;
+      }
+      const dotCls=allClear?'clear':anyDoing?'doing':'none';
+      html+=`<div class="sec-item" onclick="goToSection('${data.levelId}','${subcat}',null)">
+        <span class="sec-dot ${dotCls}"></span>
+        <span class="sec-name">${esc(subcat)}</span>
+        <span class="sec-count">${allKnown}/${allTotal}</span>
+        <span class="sec-arrow">›</span>
+      </div>`;
+    }
+  }
+  html+='</div>';
+  body.innerHTML=html;
+}
+async function goToSection(levelId,subcatName,secId){
+  await setLevel(levelId,false);
+  selectScope(subcatName);
+  if(secId)selectSection(secId);
+  setView('quiz');
+}
+
 /* ===== ビュー管理 ===== */
 function setView(v){
   view=v;
   document.getElementById('tabQuiz').classList.toggle('on',v==='quiz');
   document.getElementById('tabList').classList.toggle('on',v==='list');
+  document.getElementById('tabStatus').classList.toggle('on',v==='status');
   document.getElementById('settingsBtn').classList.toggle('on',v==='manage');
   document.getElementById('quizView').style.display=v==='quiz'?'':'none';
   document.getElementById('listView').style.display=v==='list'?'':'none';
+  document.getElementById('statusView').style.display=v==='status'?'':'none';
   document.getElementById('manageView').style.display=v==='manage'?'':'none';
   if(v==='quiz'){if(!cur)nextCard();else renderQuiz();}
   else if(v==='list')renderList();
-  else renderStorageInfo();
+  else if(v==='status')renderStatusView();
+  else{renderStorageInfo();renderManageStreak();}
 }
 function resetScope(){
   let label;
@@ -1048,6 +1284,14 @@ async function deleteAllData(){
 }
 function renderAll(){renderChips();renderProgress();if(view==='quiz'){cur=null;nextCard();}else if(view==='list')renderList();else renderStorageInfo();}
 
+function renderManageStreak(){
+  const n=state.streak||0,best=state.bestStreak||0;
+  const today=new Date().toISOString().slice(0,10);
+  const studiedToday=(state.studyDates||[]).includes(today);
+  let msg=n>0?`${n}日連続${studiedToday?' ✅':' （今日まだ）'}`:'まだ記録なし';
+  if(best>0)msg+=`　最長：${best}日`;
+  document.getElementById('manageStreakInfo').textContent=msg;
+}
 function renderStorageInfo(){
   const LIMIT_KB=5*1024;
   const COLORS=['#4A9EFF','#FF6B6B','#6BCB77','#FFD93D','#C77DFF'];
@@ -1094,6 +1338,7 @@ function addPlayerFromModal(){const name=document.getElementById('newPlayerName'
   await migratePhotosIfNeeded();
   await setLevel(state.levelId||'elem',false);
   renderPlayerDisplay();
+  renderStreakBadge();
   nextCard();
 })();
 
@@ -1407,6 +1652,7 @@ function btSpeak(){if(bts?.cur)speak(bts.cur.w.e);}
 
 function btCheck(){
   if(bts.answered)return;
+  updateStreak();
   const inp=document.getElementById('btAns'),v=norm(inp.value);
   if(!v){inp.focus();return;}
   stopBtTimer();stopBtBgm();
