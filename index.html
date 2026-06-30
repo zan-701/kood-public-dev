@@ -977,6 +977,7 @@ function renderQuiz(){
   else{document.getElementById('qHint').classList.remove('hidden');}
   document.getElementById('qPartialHint').style.display='none';
   _partialHintMask=_isElem?null:makeHintMask(cur.w.e);
+  _hintUsed=false;
   document.getElementById('hintBtn').textContent=_isElem?'💬 ヒント（にほんご）':'💬 ヒント（部分表示）';
   const inp=document.getElementById('ansInput');
   inp.style.display='';inp.value='';inp.className='ans';inp.disabled=false;
@@ -987,7 +988,7 @@ function renderQuiz(){
   document.getElementById('readBtn').style.display='none';
   document.getElementById('detailBtn').style.display='none';
 }
-let _partialHintMask=null;
+let _partialHintMask=null,_hintUsed=false;
 function makeHintMask(word){
   return word.split('/')[0].trim().split(' ').map(w=>{
     const n=w.length;
@@ -998,6 +999,7 @@ function makeHintMask(word){
   }).join(' ');
 }
 function hintBtnClick(){
+  _hintUsed=true;
   if(currentLevelData?.levelId==='elem'){document.getElementById('qHint').classList.toggle('hidden');}
   else{showPartialHint();}
 }
@@ -1050,7 +1052,7 @@ function check(){
   const v=norm(inp.value);if(!v){inp.focus();return;}
   const ok=accepted(cur.w).includes(v);
   answered=true;inp.disabled=true;
-  if(ok)onCorrect(cur.w.id);else onWrong(cur.w.id);
+  if(ok&&!_hintUsed){onCorrect(cur.w.id);}else if(ok&&_hintUsed){if(statusOf(cur.w.id)==='new'){state.prog[cur.w.id]='learn';save();}}else{onWrong(cur.w.id);}
   const fb=document.getElementById('feedback');
   document.getElementById('answerBtns').style.display='none';
   document.getElementById('nextBtns').style.display='flex';
