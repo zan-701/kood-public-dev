@@ -1039,7 +1039,7 @@ function speak(text){
   }
   _next(0);
 }
-function speakCurrent(){if(cur)speak(cur.w.e);}
+function speakCurrent(){if(!answered)_hintUsed=true;if(cur)speak(cur.w.e);}
 let _speakTimer=null;
 function speakAfterDelay(text){if(_speakTimer)clearTimeout(_speakTimer);_speakTimer=setTimeout(()=>{speak(text);_speakTimer=null;},1000);}
 function cancelSpeakTimer(){if(_speakTimer){clearTimeout(_speakTimer);_speakTimer=null;}}
