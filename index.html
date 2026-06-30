@@ -266,6 +266,7 @@
       <div class="btns" id="answerBtns">
         <button class="btn ghost small" onclick="reveal()">こたえを みる</button>
         <button class="btn primary" onclick="check()">こたえあわせ</button>
+        <button class="btn ghost small" onclick="skipCard()" style="color:var(--muted)">スキップ</button>
       </div>
       <div class="btns" id="nextBtns" style="display:none">
         <button class="btn ghost" onclick="againCard()">もういちど</button>
@@ -910,6 +911,7 @@ function onWrong(id){
 }
 function againCard(){cancelSpeakTimer();if(!cur){nextCard();return;}renderQuiz();}
 function goNext(){cancelSpeakTimer();renderProgress();renderChips();nextCard();}
+function skipCard(){cancelSpeakTimer();nextCard();}
 function buildQueue(){
   const pool=scopeWords();
   const failing=[],unseen=[],ontrack=[],known=[];
