@@ -616,17 +616,18 @@ initPlayers();load();
 /* ===== ストリーク ===== */
 const LEVEL_TOTALS={elem:473,junior:5592,high:1797,other:4137,eiken:10488};
 const LEVEL_LABELS={elem:'小学_塾',junior:'中学',high:'高校',other:'その他',eiken:'英検'};
+function localDateStr(d){const t=d||new Date();return`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;}
 function updateStreak(){
-  const today=new Date().toISOString().slice(0,10);
+  const today=localDateStr();
   if(state.lastStudy===today)return;
-  const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  const yesterday=localDateStr(new Date(Date.now()-86400000));
   state.streak=(state.lastStudy===yesterday)?(state.streak||0)+1:1;
   if(state.streak>(state.bestStreak||0))state.bestStreak=state.streak;
   state.lastStudy=today;
   if(!state.studyDates)state.studyDates=[];
   if(!state.studyDates.includes(today)){
     state.studyDates.push(today);
-    const cutoff=new Date(Date.now()-60*86400000).toISOString().slice(0,10);
+    const cutoff=localDateStr(new Date(Date.now()-60*86400000));
     state.studyDates=state.studyDates.filter(d=>d>=cutoff);
   }
   save();
@@ -1211,7 +1212,7 @@ function renderStreakCalendar(){
   const y=base.getFullYear(),m=base.getMonth();
   const daysInMonth=new Date(y,m+1,0).getDate();
   const firstDow=(new Date(y,m,1).getDay()+6)%7;
-  const todayStr=new Date().toISOString().slice(0,10);
+  const todayStr=localDateStr();
   const dates=state.studyDates||[];
   const minOff=calcMinCalOffset();
   const prevDis=_calOffset<=minOff?'disabled':'';
@@ -1350,7 +1351,7 @@ function renderAll(){renderChips();renderProgress();if(view==='quiz'){cur=null;n
 
 function renderManageStreak(){
   const n=state.streak||0,best=state.bestStreak||0;
-  const today=new Date().toISOString().slice(0,10);
+  const today=localDateStr();
   const studiedToday=(state.studyDates||[]).includes(today);
   let msg=n>0?`${n}日連続${studiedToday?' ✅':' （今日まだ）'}`:'まだ記録なし';
   if(best>0)msg+=`　最長：${best}日`;
