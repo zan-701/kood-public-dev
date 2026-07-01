@@ -1084,7 +1084,7 @@ function reveal(){
   playWrong();speakAfterDelay(cur.w.e);
 }
 
-document.getElementById('ansInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(!answered)check();}});
+document.getElementById('ansInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();_ensureAudioReady();if(!answered)check();}});
 
 /* ===== いちらん ===== */
 function renderList(){
@@ -1763,7 +1763,7 @@ function btShowResult(){
   confetti();setTimeout(confetti,400);setTimeout(confetti,800);
 }
 
-document.getElementById('btAns').addEventListener('keydown',e=>{if(e.key!=='Enter')return;e.preventDefault();e.stopPropagation();if(bts&&!bts.answered)btCheck();});
+document.getElementById('btAns').addEventListener('keydown',e=>{if(e.key!=='Enter')return;e.preventDefault();e.stopPropagation();_ensureAudioReady();if(bts&&!bts.answered)btCheck();});
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter'||!bts)return;
   if(document.getElementById('btCover').style.display==='flex'){e.preventDefault();btStartTurn();return;}
@@ -1787,6 +1787,16 @@ function _btACtx(){
   if(_btAC.state==='suspended')_btAC.resume();
   return _btAC;
 }
+/* iOS Web Audio アンロック：初回タッチ時に AudioContext を生成して silent buffer で解除 */
+let _audioReady=false;
+function _ensureAudioReady(){
+  if(_audioReady)return;_audioReady=true;
+  const unlock=ctx=>{try{const b=ctx.createBuffer(1,1,ctx.sampleRate),s=ctx.createBufferSource();s.buffer=b;s.connect(ctx.destination);s.start(0);if(ctx.state!=='running')ctx.resume();}catch(e){}};
+  try{if(!_sfxAC||_sfxAC.state==='closed')_sfxAC=new(window.AudioContext||window.webkitAudioContext)();unlock(_sfxAC);}catch(e){}
+  try{if(!_btAC||_btAC.state==='closed')_btAC=new(window.AudioContext||window.webkitAudioContext)();unlock(_btAC);}catch(e){}
+}
+document.addEventListener('touchstart',_ensureAudioReady,{once:true,passive:true});
+document.addEventListener('mousedown',_ensureAudioReady,{once:true});
 function stopBtBgm(){if(_btJob){clearInterval(_btJob);_btJob=null;}_btPat=null;}
 function _btSched(){
   if(!_btPat)return;
