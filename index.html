@@ -184,7 +184,10 @@
   .streak-big{font-size:52px;font-weight:900;color:var(--accent-d);line-height:1;}
   .streak-unit{font-size:18px;font-weight:800;}
   .streak-best{font-size:12px;color:#999;}
-  .cal-title{font-weight:800;text-align:center;margin-bottom:8px;font-size:13px;color:var(--muted);}
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .cal-nav-btn{background:none;border:none;font-size:22px;font-weight:900;cursor:pointer;color:var(--accent-d);padding:0 6px;border-radius:6px;line-height:1.2;}
+  .cal-nav-btn:disabled{color:#ccc;cursor:default;}
+  .cal-title{font-weight:800;text-align:center;font-size:13px;color:var(--muted);}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
   .cal-dh{text-align:center;font-size:10px;color:#bbb;padding:2px 0;font-weight:700;}
   .cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:11px;border-radius:50%;color:#ccc;font-weight:600;}
@@ -492,6 +495,7 @@ async function switchPlayer(id){
   photoCache=await loadPhotosForPlayer(id);
   await migratePhotosIfNeeded();
   await setLevel(state.levelId||'elem',false);
+  _calOffset=0;
   renderPlayerDisplay();
   renderStreakBadge();
   closePlayerModal();
@@ -990,7 +994,7 @@ function renderQuiz(){
   document.getElementById('readBtn').style.display='none';
   document.getElementById('detailBtn').style.display='none';
 }
-let _partialHintMask=null,_hintUsed=false;
+let _partialHintMask=null,_hintUsed=false,_calOffset=0;
 function makeHintMask(word){
   return word.split('/')[0].trim().split(' ').map(w=>{
     const n=w.length;
@@ -1187,14 +1191,32 @@ document.getElementById('importFFile').addEventListener('change',function(){
 });
 
 /* ===== ステータス画面 ===== */
-function renderStreakCalendar(){
+function calcMinCalOffset(){
+  const dates=state.studyDates||[];
+  if(!dates.length)return -2;
+  const earliest=dates.reduce((a,b)=>a<b?a:b);
   const now=new Date();
-  const y=now.getFullYear(),m=now.getMonth();
+  const ed=new Date(earliest+'T00:00:00');
+  const diff=(now.getFullYear()-ed.getFullYear())*12+(now.getMonth()-ed.getMonth());
+  return -Math.min(diff,24);
+}
+function calNav(dir){
+  _calOffset=Math.min(0,Math.max(calcMinCalOffset(),_calOffset+dir));
+  renderStreakCalendar();
+}
+function renderStreakCalendar(){
+  const base=new Date();
+  base.setDate(1);
+  base.setMonth(base.getMonth()+_calOffset);
+  const y=base.getFullYear(),m=base.getMonth();
   const daysInMonth=new Date(y,m+1,0).getDate();
   const firstDow=(new Date(y,m,1).getDay()+6)%7;
-  const todayStr=now.toISOString().slice(0,10);
+  const todayStr=new Date().toISOString().slice(0,10);
   const dates=state.studyDates||[];
-  let html=`<div class="cal-title">${y}年${m+1}月</div><div class="cal-grid">`;
+  const minOff=calcMinCalOffset();
+  const prevDis=_calOffset<=minOff?'disabled':'';
+  const nextDis=_calOffset>=0?'disabled':'';
+  let html=`<div class="cal-nav"><button class="cal-nav-btn" onclick="calNav(-1)" ${prevDis}>‹</button><span class="cal-title">${y}年${m+1}月</span><button class="cal-nav-btn" onclick="calNav(1)" ${nextDis}>›</button></div><div class="cal-grid">`;
   ['月','火','水','木','金','土','日'].forEach(d=>html+=`<div class="cal-dh">${d}</div>`);
   for(let i=0;i<firstDow;i++)html+='<div></div>';
   for(let d=1;d<=daysInMonth;d++){
