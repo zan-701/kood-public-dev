@@ -1787,25 +1787,10 @@ function _btACtx(){
   if(_btAC.state==='suspended')_btAC.resume();
   return _btAC;
 }
-/* iOS Web Audio アンロック：初回タッチ時に AudioContext を生成して silent buffer で解除。
-   <audio>ループで iOS セッションを Playback カテゴリに昇格させマナーモードを回避する。 */
+/* iOS Web Audio アンロック：初回タッチ時に AudioContext を生成して silent buffer で解除 */
 let _audioReady=false;
 function _ensureAudioReady(){
   if(_audioReady)return;_audioReady=true;
-  // 無音WAVを<audio>ループ再生 → iOS AudioSession を Playback カテゴリに昇格（マナーモード回避）
-  try{
-    const n=8000,ab=new ArrayBuffer(44+n),dv=new DataView(ab);
-    const ws=(o,s)=>{for(let i=0;i<s.length;i++)dv.setUint8(o+i,s.charCodeAt(i));};
-    ws(0,'RIFF');dv.setUint32(4,36+n,true);ws(8,'WAVE');ws(12,'fmt ');
-    dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,1,true);
-    dv.setUint32(24,8000,true);dv.setUint32(28,8000,true);dv.setUint16(32,1,true);dv.setUint16(34,8,true);
-    ws(36,'data');dv.setUint32(40,n,true);
-    for(let i=44;i<44+n;i++)dv.setUint8(i,128); // 128 = 8bit silence
-    const sa=document.createElement('audio');
-    sa.src=URL.createObjectURL(new Blob([ab],{type:'audio/wav'}));
-    sa.loop=true;document.body.appendChild(sa);sa.play().catch(()=>{});
-  }catch(e){}
-  // AudioContext アンロック（suspended → running）
   const unlock=ctx=>{try{const b=ctx.createBuffer(1,1,ctx.sampleRate),s=ctx.createBufferSource();s.buffer=b;s.connect(ctx.destination);s.start(0);if(ctx.state!=='running')ctx.resume();}catch(e){}};
   try{if(!_sfxAC||_sfxAC.state==='closed')_sfxAC=new(window.AudioContext||window.webkitAudioContext)();unlock(_sfxAC);}catch(e){}
   try{if(!_btAC||_btAC.state==='closed')_btAC=new(window.AudioContext||window.webkitAudioContext)();unlock(_btAC);}catch(e){}
