@@ -437,8 +437,9 @@
       <div class="tag" id="btQTag"></div>
       <div class="pic" id="btQPic"></div>
       <div class="hint hidden" id="btQHint"><span id="btQHintTxt"></span></div>
+      <div class="hint" id="btQPartialHint" style="display:none;font-family:'Baloo 2',sans-serif;font-size:20px;font-weight:800;letter-spacing:3px;color:var(--accent-d);text-align:center"></div>
       <div class="hint-btns">
-        <button class="hintbtn" onclick="btToggleHint()">💬 ヒント（にほんご）</button>
+        <button class="hintbtn" id="btHintBtn" onclick="btToggleHint()">💬 ヒント（にほんご）</button>
         <button class="hintbtn" onclick="btSpeak()">🔊 ヒント（えいごのおと）</button>
       </div>
       <input class="ans" id="btAns" type="text" inputmode="latin" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="えいごで かこう" enterkeyhint="done">
@@ -995,7 +996,7 @@ function renderQuiz(){
   document.getElementById('readBtn').style.display='none';
   document.getElementById('detailBtn').style.display='none';
 }
-let _partialHintMask=null,_hintUsed=false,_calOffset=0;
+let _partialHintMask=null,_hintUsed=false,_calOffset=0,_btPartialHintMask=null;
 function makeHintMask(word){
   return word.split('/')[0].trim().split(' ').map(w=>{
     const n=w.length;
@@ -1680,8 +1681,12 @@ function btStartTurn(){
   document.getElementById('btQTag').textContent=q.sec.name;
   document.getElementById('btQPic').innerHTML=photo?`<img src="${photo}" alt="" onerror="this.src=''">`:
     `<div class="ph"><b>📷</b></div>`;
+  const _btIsElem=q.w.id.split('_')[0]==='elem';
+  _btPartialHintMask=null;
   document.getElementById('btQHintTxt').textContent=q.w.j;
-  document.getElementById('btQHint').classList.add('hidden');
+  document.getElementById('btQHint').classList.toggle('hidden',_btIsElem);
+  document.getElementById('btQPartialHint').style.display='none';
+  document.getElementById('btHintBtn').textContent=_btIsElem?'💬 ヒント（にほんご）':'💬 ヒント（部分表示）';
   const inp=document.getElementById('btAns');
   inp.value='';inp.className='ans';inp.disabled=false;
   document.getElementById('btFb').textContent='';
@@ -1712,7 +1717,17 @@ function btStartTurn(){
 }
 
 function stopBtTimer(){if(bts?.timerIv){clearInterval(bts.timerIv);bts.timerIv=null;}}
-function btToggleHint(){document.getElementById('btQHint').classList.toggle('hidden');}
+function btToggleHint(){
+  if(!bts?.cur)return;
+  if(bts.cur.w.id.split('_')[0]==='elem'){
+    document.getElementById('btQHint').classList.toggle('hidden');
+  }else{
+    const el=document.getElementById('btQPartialHint');
+    if(el.style.display!=='none'){el.style.display='none';return;}
+    if(!_btPartialHintMask)_btPartialHintMask=makeHintMask(bts.cur.w.e);
+    el.textContent=_btPartialHintMask;el.style.display='';
+  }
+}
 function btSpeak(){if(bts?.cur)speak(bts.cur.w.e);}
 
 function btCheck(){
