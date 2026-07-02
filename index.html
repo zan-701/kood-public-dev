@@ -520,7 +520,7 @@
         <button class="btn green" id="bossNbtnInner" onclick="bossNext()">つぎへ →</button>
       </div>
     </div>
-    <p style="text-align:center;font-size:11px;color:var(--muted);font-weight:700;margin-top:10px">ヒント・スキップなし！20秒いないに こたえよう</p>
+    <p style="text-align:center;font-size:11px;color:var(--muted);font-weight:700;margin-top:10px">ヒント・スキップなし！20秒いないに こたえよう（ぜんもん せいかいで ごうかく！）</p>
   </div>
 </div>
 <div id="bossResult" style="display:none">
@@ -2029,10 +2029,10 @@ function bossNext(){
 function bossEnd(){
   bossStopTimer();stopBtBgm();
   document.getElementById('bossBg').style.display='none';
-  const total=boss.queue.length,need=Math.ceil(total*0.9);
-  const pass=boss.okCount>=need;
+  const total=boss.queue.length;
+  const pass=boss.okCount>=total;
   document.getElementById('bossRTitle').textContent=pass?'👑 ボスチャレンジ クリア！':'😢 ざんねん…';
-  document.getElementById('bossRScore').innerHTML=`${boss.okCount} / ${total}もん せいかい<br><span style="font-size:12px;color:var(--muted)">（ごうかくは ${need}もん いじょう）</span>`;
+  document.getElementById('bossRScore').innerHTML=`${boss.okCount} / ${total}もん せいかい<br><span style="font-size:12px;color:var(--muted)">（ぜんもん せいかいで ごうかく）</span>`;
   document.getElementById('bossRMsg').textContent=pass?'👑 おうかんを ゲット！':'また ちょうせんしてね！';
   document.getElementById('bossRBtns').innerHTML=pass
     ?`<button class="btn primary" onclick="bossClose()">やったー！</button>`
