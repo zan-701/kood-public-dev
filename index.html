@@ -521,6 +521,7 @@ async function deletePlayer(id){
     load();photoCache=await loadPhotosForPlayer(playerConfig.current);
     await migratePhotosIfNeeded();
     await setLevel(state.levelId||'elem');
+    renderStreakBadge();
   }
   savePlayerConfig();renderPlayerModal();renderPlayerDisplay();
 }
@@ -615,7 +616,7 @@ function save(){
 initPlayers();load();
 
 /* ===== ストリーク ===== */
-const LEVEL_TOTALS={elem:473,junior:5592,high:1797,other:4137,eiken:10488};
+const LEVEL_TOTALS={elem:473,junior:5592,high:1797,other:4137,eiken:10487};
 const LEVEL_LABELS={elem:'小学_塾',junior:'中学',high:'高校',other:'その他',eiken:'英検'};
 function localDateStr(d){const t=d||new Date();return`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;}
 function updateStreak(){
@@ -634,8 +635,13 @@ function updateStreak(){
   save();
   renderStreakBadge();
 }
+function effectiveStreak(){
+  // 最後の学習が今日・昨日以外ならストリークは切れている（次の解答で1から再開）
+  const today=localDateStr(),yesterday=localDateStr(new Date(Date.now()-86400000));
+  return(state.lastStudy===today||state.lastStudy===yesterday)?(state.streak||0):0;
+}
 function renderStreakBadge(){
-  const n=state.streak||0;
+  const n=effectiveStreak();
   document.getElementById('streakCount').textContent=n;
   document.getElementById('streakBadge').style.display=n>0?'':'none';
 }
@@ -1055,17 +1061,17 @@ function playWrong(){playSound([[311,0,0.28],[233,0.22,0.38]]);}
 function accepted(w){return w.e.split('/').map(x=>norm(x)).filter(Boolean);}
 function check(){
   if(answered||!cur)return;
-  updateStreak();
   const inp=document.getElementById('ansInput');
   const v=norm(inp.value);if(!v){inp.focus();return;}
+  updateStreak();
   const ok=accepted(cur.w).includes(v);
   answered=true;inp.disabled=true;
   if(ok&&!_hintUsed){onCorrect(cur.w.id);}else if(ok&&_hintUsed){if(statusOf(cur.w.id)==='new'){state.prog[cur.w.id]='learn';save();}}else{onWrong(cur.w.id);}
   const fb=document.getElementById('feedback');
   document.getElementById('answerBtns').style.display='none';
   document.getElementById('nextBtns').style.display='flex';
-  if(ok){inp.classList.add('ok');fb.innerHTML='🎉 せいかい！ <span class="correctword">'+cur.w.e+'</span>';fb.style.color='var(--known)';confetti();playCorrect();}
-  else{inp.classList.add('ng');fb.innerHTML='おしい！ こたえ → <span class="correctword">'+cur.w.e+'</span>';fb.style.color='var(--learn)';document.getElementById('qHint').classList.remove('hidden');playWrong();}
+  if(ok){inp.classList.add('ok');fb.innerHTML='🎉 せいかい！ <span class="correctword">'+esc(cur.w.e)+'</span>';fb.style.color='var(--known)';confetti();playCorrect();}
+  else{inp.classList.add('ng');fb.innerHTML='おしい！ こたえ → <span class="correctword">'+esc(cur.w.e)+'</span>';fb.style.color='var(--learn)';document.getElementById('qHint').classList.remove('hidden');playWrong();}
   speakAfterDelay(cur.w.e);
   document.getElementById('readBtn').style.display='';
   document.getElementById('detailBtn').style.display='';
@@ -1075,7 +1081,7 @@ function reveal(){
   answered=true;document.getElementById('ansInput').disabled=true;
   onWrong(cur.w.id);
   document.getElementById('qHint').classList.remove('hidden');
-  document.getElementById('feedback').innerHTML='こたえ → <span class="correctword">'+cur.w.e+'</span>';
+  document.getElementById('feedback').innerHTML='こたえ → <span class="correctword">'+esc(cur.w.e)+'</span>';
   document.getElementById('feedback').style.color='var(--ink)';
   document.getElementById('answerBtns').style.display='none';
   document.getElementById('nextBtns').style.display='flex';
@@ -1238,7 +1244,7 @@ function renderStatusView(){
   document.getElementById('statGrandTotal').textContent=grandTotal.toLocaleString();
   document.getElementById('statPctTotal').textContent=pct+'%';
   document.getElementById('statBarTotal').style.width=pct+'%';
-  document.getElementById('statStreakNum').textContent=state.streak||0;
+  document.getElementById('statStreakNum').textContent=effectiveStreak();
   document.getElementById('statBestStreak').textContent=state.bestStreak||0;
   renderStreakCalendar();
   const acc=document.getElementById('levelAccordion');
@@ -1337,7 +1343,7 @@ function resetScope(){
     else label=secScope;
   }else label=scope==='all'?'ぜんぶ':displaySubcatName(scope);
   if(!confirm(label+' の学習記録を0%にもどします。よろしいですか？'))return;
-  scopeWords().forEach(({w})=>{delete state.prog[w.id];});
+  scopeWords().forEach(({w})=>{delete state.prog[w.id];if(state.correctCount)delete state.correctCount[w.id];if(state.wrongCount)delete state.wrongCount[w.id];});
   save();cur=null;queue=[];renderProgress();renderChips();if(view==='quiz')nextCard();
 }
 function resetAllProgress(){if(!confirm('ぜんぶの学習記録を消します。写真は残ります。よろしいですか？'))return;state.prog={};state.correctCount={};state.wrongCount={};save();renderAll();}
@@ -1348,10 +1354,10 @@ async function deleteAllData(){
   state={levelId:state.levelId||'elem',prog:{},streak:0,bestStreak:0,lastStudy:null,studyDates:[],correctCount:{},wrongCount:{}};
   save();renderAll();alert('削除しました。');
 }
-function renderAll(){renderChips();renderProgress();if(view==='quiz'){cur=null;nextCard();}else if(view==='list')renderList();else renderStorageInfo();}
+function renderAll(){renderStreakBadge();renderChips();renderProgress();if(view==='quiz'){cur=null;nextCard();}else if(view==='list')renderList();else renderStorageInfo();}
 
 function renderManageStreak(){
-  const n=state.streak||0,best=state.bestStreak||0;
+  const n=effectiveStreak(),best=state.bestStreak||0;
   const today=localDateStr();
   const studiedToday=(state.studyDates||[]).includes(today);
   let msg=n>0?`${n}日連続${studiedToday?' ✅':' （今日まだ）'}`:'まだ記録なし';
@@ -1732,9 +1738,9 @@ function btSpeak(){if(bts?.cur)speak(bts.cur.w.e);}
 
 function btCheck(){
   if(bts.answered)return;
-  updateStreak();
   const inp=document.getElementById('btAns'),v=norm(inp.value);
   if(!v){inp.focus();return;}
+  updateStreak();
   stopBtTimer();stopBtBgm();
   const ok=accepted(bts.cur.w).includes(v);
   bts.answered=true;inp.disabled=true;
